@@ -21,6 +21,57 @@ export interface DownloadProgress {
   percentage: number;
 }
 
+// Enhanced SharedArrayBuffer detection based on whisper.cpp requirements
+export const checkWhisperWebSupport = (): { supported: boolean; reason?: string; details?: string } => {
+  // Check for SharedArrayBuffer
+  if (typeof SharedArrayBuffer === 'undefined') {
+    return { 
+      supported: false, 
+      reason: 'SharedArrayBuffer not available',
+      details: 'Requires Cross-Origin-Opener-Policy: same-origin-allow-popups and Cross-Origin-Embedder-Policy: require-corp headers'
+    };
+  }
+  
+  // Check cross-origin isolation
+  if (!crossOriginIsolated) {
+    return { 
+      supported: false, 
+      reason: 'Not cross-origin isolated',
+      details: 'Current headers may not be properly configured. Check browser network tab for COOP/COEP headers.'
+    };
+  }
+
+  // Check for WebAssembly support
+  if (typeof WebAssembly === 'undefined') {
+    return {
+      supported: false,
+      reason: 'WebAssembly not supported',
+      details: 'Browser does not support WebAssembly which is required for whisper.cpp'
+    };
+  }
+
+  // Additional checks for whisper.cpp specific requirements
+  try {
+    // Test SharedArrayBuffer creation
+    const testBuffer = new SharedArrayBuffer(1024);
+    if (testBuffer.byteLength !== 1024) {
+      return {
+        supported: false,
+        reason: 'SharedArrayBuffer creation failed',
+        details: 'Unable to create SharedArrayBuffer with expected size'
+      };
+    }
+  } catch (error) {
+    return {
+      supported: false,
+      reason: 'SharedArrayBuffer test failed',
+      details: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    };
+  }
+  
+  return { supported: true };
+};
+
 export const downloadWhisperModel = async (
   modelName: string,
   onProgress?: (progress: DownloadProgress) => void
@@ -30,7 +81,12 @@ export const downloadWhisperModel = async (
     throw new Error(`Model ${modelName} not found`);
   }
 
-  const response = await fetch(model.url);
+  // Add CORS headers for model download
+  const response = await fetch(model.url, {
+    mode: 'cors',
+    credentials: 'omit'
+  });
+  
   if (!response.ok) {
     throw new Error(`Failed to download model: ${response.statusText}`);
   }
@@ -77,7 +133,12 @@ export const downloadWhisperModel = async (
 
 export const storeModelInCache = async (modelName: string, buffer: ArrayBuffer): Promise<void> => {
   const cache = await caches.open('whisper-models');
-  const response = new Response(buffer);
+  const response = new Response(buffer, {
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Cross-Origin-Resource-Policy': 'cross-origin'
+    }
+  });
   await cache.put(`/models/${modelName}`, response);
 };
 
@@ -95,18 +156,25 @@ export const transcribeWithWhisperWeb = async (
   audioBlob: Blob,
   modelName: string = 'tiny'
 ): Promise<string> => {
-  // This is a placeholder for the actual Whisper Web implementation
-  // In a real implementation, you would:
-  // 1. Load the WebAssembly module
-  // 2. Initialize the model
-  // 3. Process the audio blob
-  // 4. Return the transcription
-  
+  const support = checkWhisperWebSupport();
+  if (!support.supported) {
+    throw new Error(`Whisper Web not supported: ${support.reason}. ${support.details || ''}`);
+  }
+
   console.log('Transcribing with Whisper Web...', { audioBlob, modelName });
   
-  // Simulate processing time
+  // Check if model is available in cache
+  let modelBuffer = await getModelFromCache(modelName);
+  if (!modelBuffer) {
+    console.log(`Model ${modelName} not found in cache, downloading...`);
+    modelBuffer = await downloadWhisperModel(modelName);
+    await storeModelInCache(modelName, modelBuffer);
+  }
+  
+  // Simulate processing time for now
+  // In a real implementation, this would use the whisper.cpp WebAssembly module
   await new Promise(resolve => setTimeout(resolve, 2000));
   
-  // Return mock transcription
-  return "This is a mock transcription from Whisper Web. In a real implementation, this would be the actual transcribed text from your audio.";
+  // Return mock transcription with model info
+  return `[Whisper Web - ${modelName}] This is a mock transcription from Whisper Web using the ${modelName} model. The actual implementation would process the audio through whisper.cpp WebAssembly module with the downloaded model.`;
 };

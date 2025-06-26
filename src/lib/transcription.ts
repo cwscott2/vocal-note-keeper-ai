@@ -77,23 +77,5 @@ export const transcribeWithHuggingFace = async (audioBlob: Blob, apiKey: string,
   return result.text || 'Transcription failed';
 };
 
-export const canUseWhisperWeb = (): { supported: boolean; reason?: string } => {
-  if (typeof SharedArrayBuffer === 'undefined') {
-    return { 
-      supported: false, 
-      reason: 'SharedArrayBuffer not available. Requires secure context with proper headers.' 
-    };
-  }
-  
-  if (!crossOriginIsolated) {
-    return { 
-      supported: false, 
-      reason: 'Not cross-origin isolated. Requires COOP and COEP headers.' 
-    };
-  }
-  
-  return { supported: true };
-};
-
-// Import Whisper Web functions
-export { transcribeWithWhisperWeb } from './whisperWeb';
+// Use the enhanced support detection from whisperWeb
+export { checkWhisperWebSupport as canUseWhisperWeb, transcribeWithWhisperWeb } from './whisperWeb';
