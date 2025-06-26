@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Play } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelativeTime, formatDuration } from '@/lib/timeUtils';
 
 interface RecordingCardProps {
   recording: Recording;
@@ -14,28 +14,6 @@ interface RecordingCardProps {
 }
 
 export const RecordingCard = ({ recording, onPlay, onEdit, onDelete }: RecordingCardProps) => {
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatRelativeTime = (date: Date) => {
-    const distance = formatDistanceToNow(date, { addSuffix: true });
-    return distance
-      .replace('about ', '')
-      .replace(' minutes ago', 'm')
-      .replace(' minute ago', 'm')
-      .replace(' hours ago', 'h')
-      .replace(' hour ago', 'h')
-      .replace(' days ago', 'd')
-      .replace(' day ago', 'd')
-      .replace(' weeks ago', 'w')
-      .replace(' week ago', 'w')
-      .replace(' months ago', 'mo')
-      .replace(' month ago', 'mo');
-  };
-
   const getStatusBadge = (provider: string) => {
     if (provider === 'pending') {
       return <Badge variant="secondary">Pending</Badge>;

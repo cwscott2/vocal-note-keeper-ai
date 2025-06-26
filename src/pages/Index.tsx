@@ -10,13 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Search, Settings, Plus, Loader2, Download, WifiOff, Wifi } from 'lucide-react';
+import { Mic, Search, Settings as SettingsIcon, Plus, Loader2, Download, WifiOff, Wifi } from 'lucide-react';
 import { Recording, db, initializeDefaultSettings } from '@/lib/database';
 import { transcribeWithOpenAI, transcribeWithHuggingFace, transcribeWithWhisperWeb } from '@/lib/transcription';
 import { usePWA } from '@/hooks/usePWA';
 import { toast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { RecordingDetailsPanel } from '@/components/RecordingDetailsPanel';
+import { OnboardingWizard } from '@/components/OnboardingWizard';
 import Settings from '@/pages/Settings';
 
 const Index = () => {
@@ -297,7 +298,7 @@ const Index = () => {
             </div>
             <div className="flex items-center space-x-2">
               <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
-                <Settings className="w-4 h-4 mr-2" />
+                <SettingsIcon className="w-4 h-4 mr-2" />
                 Settings
               </Button>
               <Sheet open={isRecordingSheetOpen} onOpenChange={setIsRecordingSheetOpen}>

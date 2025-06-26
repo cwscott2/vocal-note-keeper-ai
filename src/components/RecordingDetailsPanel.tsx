@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Recording, db } from '@/lib/database';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -7,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Play, Pause, Trash2, RotateCcw, Volume2 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatRelativeTime } from '@/lib/timeUtils';
 import { toast } from '@/hooks/use-toast';
 
 interface RecordingDetailsPanelProps {
@@ -93,22 +92,6 @@ export const RecordingDetailsPanel = ({
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatRelativeTime = (date: Date) => {
-    const distance = formatDistanceToNow(date, { addSuffix: true });
-    return distance
-      .replace('about ', '')
-      .replace(' minutes ago', 'm')
-      .replace(' minute ago', 'm')
-      .replace(' hours ago', 'h')
-      .replace(' hour ago', 'h')
-      .replace(' days ago', 'd')
-      .replace(' day ago', 'd')
-      .replace(' weeks ago', 'w')
-      .replace(' week ago', 'w')
-      .replace(' months ago', 'mo')
-      .replace(' month ago', 'mo');
   };
 
   const getStatusBadge = (provider: string) => {
