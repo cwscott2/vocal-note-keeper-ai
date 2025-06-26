@@ -346,7 +346,7 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
       case 1:
         return selectedProvider !== '';
       case 2:
-        return selectedSummaryProvider !== '';
+        return selectedSummaryProvider !== 'none';
       case 3:
         if (selectedProvider === 'whisper-web') return !isDownloading;
         if (selectedProvider === 'openai' || selectedSummaryProvider === 'openai') {
