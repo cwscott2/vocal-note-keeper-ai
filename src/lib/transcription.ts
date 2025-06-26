@@ -8,6 +8,12 @@ export interface TranscriptionProvider {
 
 export const TRANSCRIPTION_PROVIDERS: TranscriptionProvider[] = [
   {
+    name: 'whisper-web',
+    displayName: 'Whisper Web (Local)',
+    models: ['tiny', 'tiny.en', 'base', 'base.en', 'small', 'small.en'],
+    requiresApiKey: false
+  },
+  {
     name: 'openai',
     displayName: 'OpenAI',
     models: ['whisper-1', 'gpt-4o-mini', 'gpt-4o', 'gpt-4o-audio'],
@@ -23,12 +29,6 @@ export const TRANSCRIPTION_PROVIDERS: TranscriptionProvider[] = [
       'openai/whisper-tiny'
     ],
     requiresApiKey: true
-  },
-  {
-    name: 'whisper-web',
-    displayName: 'Whisper Web (Local)',
-    models: ['tiny', 'tiny.en', 'base', 'base.en', 'small', 'small.en'],
-    requiresApiKey: false
   }
 ];
 
@@ -94,3 +94,6 @@ export const canUseWhisperWeb = (): { supported: boolean; reason?: string } => {
   
   return { supported: true };
 };
+
+// Import Whisper Web functions
+export { transcribeWithWhisperWeb } from './whisperWeb';

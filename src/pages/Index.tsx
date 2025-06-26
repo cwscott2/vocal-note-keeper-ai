@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Mic, Search, Settings, Plus, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Mic, Search, Settings, Plus, Loader2, Download, WifiOff, Wifi } from 'lucide-react';
 import { Recording, db, initializeDefaultSettings } from '@/lib/database';
-import { transcribeWithOpenAI, transcribeWithHuggingFace } from '@/lib/transcription';
+import { transcribeWithOpenAI, transcribeWithHuggingFace, transcribeWithWhisperWeb } from '@/lib/transcription';
+import { usePWA } from '@/hooks/usePWA';
 import { toast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -27,7 +28,8 @@ const Index = () => {
   const [editedSummary, setEditedSummary] = useState('');
   const [editedTranscript, setEditedTranscript] = useState('');
 
-  // Load recordings on mount
+  const { isOnline, installPrompt, isInstalled, installApp } = usePWA();
+
   useEffect(() => {
     const loadRecordings = async () => {
       await initializeDefaultSettings();
@@ -38,7 +40,6 @@ const Index = () => {
     loadRecordings();
   }, []);
 
-  // Filter recordings based on search
   useEffect(() => {
     if (!searchTerm) {
       setFilteredRecordings(recordings);
@@ -56,15 +57,12 @@ const Index = () => {
     setIsTranscribing(true);
     
     try {
-      // Generate a title based on timestamp
       const now = new Date();
       const title = `Recording ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
       
-      // Store audio blob
       const audioBlobId = `audio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       await db.audioBlobs.put({ id: audioBlobId, blob: audioBlob });
       
-      // Create recording entry
       const newRecording: Recording = {
         title,
         createdAt: now,
@@ -86,7 +84,6 @@ const Index = () => {
           description: "Starting transcription process..."
         });
         
-        // Start transcription in background
         transcribeRecording(savedRecording, audioBlob);
       }
       
@@ -105,34 +102,28 @@ const Index = () => {
 
   const transcribeRecording = async (recording: Recording, audioBlob: Blob) => {
     try {
-      // Get settings for API keys
       const settings = await db.settings.toArray();
       const currentSettings = settings[0];
       
-      if (!currentSettings?.openaiApiKey && !currentSettings?.hfApiKey) {
-        toast({
-          title: "API Key Required",
-          description: "Please configure transcription API keys in settings",
-          variant: "destructive"
-        });
-        return;
-      }
-
       let transcription = '';
       let provider = '';
 
-      // Try OpenAI first if available
-      if (currentSettings.openaiApiKey) {
+      // Try selected provider first
+      if (currentSettings?.selectedProvider === 'whisper-web') {
+        try {
+          transcription = await transcribeWithWhisperWeb(audioBlob, 'tiny');
+          provider = 'whisper-web';
+        } catch (error) {
+          console.error('Whisper Web transcription failed:', error);
+        }
+      } else if (currentSettings?.selectedProvider === 'openai' && currentSettings.openaiApiKey) {
         try {
           transcription = await transcribeWithOpenAI(audioBlob, currentSettings.openaiApiKey);
           provider = 'openai';
         } catch (error) {
           console.error('OpenAI transcription failed:', error);
         }
-      }
-
-      // Fallback to Hugging Face if OpenAI failed
-      if (!transcription && currentSettings.hfApiKey) {
+      } else if (currentSettings?.selectedProvider === 'huggingface' && currentSettings.hfApiKey) {
         try {
           transcription = await transcribeWithHuggingFace(
             audioBlob, 
@@ -146,14 +137,12 @@ const Index = () => {
       }
 
       if (transcription) {
-        // Update recording with transcription
         await db.recordings.update(recording.id!, {
           transcriptMD: transcription,
           summaryMD: `# Summary\n\n*Auto-generated summary will be available soon...*\n\n## Key Points\n\n- Transcription completed successfully\n- Duration: ${Math.floor(recording.duration / 60)}:${(recording.duration % 60).toString().padStart(2, '0')}\n- Provider: ${provider}`,
           provider
         });
 
-        // Update local state
         setRecordings(prev => prev.map(r => 
           r.id === recording.id 
             ? { ...r, transcriptMD: transcription, summaryMD: `Summary for: ${recording.title}`, provider }
@@ -243,14 +232,36 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4">
+          {!isOnline && (
+            <Alert className="mb-4 border-yellow-500">
+              <WifiOff className="w-4 h-4" />
+              <AlertDescription>
+                You're offline. Some features may be limited.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {installPrompt && !isInstalled && (
+            <Alert className="mb-4 border-blue-500">
+              <Download className="w-4 h-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>Install AI Note Taker for a better experience</span>
+                <Button size="sm" onClick={installApp}>
+                  Install App
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <Mic className="w-8 h-8 text-primary" />
                 <h1 className="text-2xl font-bold">AI Note Taker</h1>
+                {!isOnline && <WifiOff className="w-5 h-5 text-muted-foreground" />}
+                {isOnline && <Wifi className="w-5 h-5 text-green-500" />}
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -280,7 +291,7 @@ const Index = () => {
                     ) : (
                       <RecordingInterface
                         onRecordingComplete={handleRecordingComplete}
-                        maxDuration={1800} // 30 minutes
+                        maxDuration={1800}
                       />
                     )}
                   </div>
@@ -291,9 +302,7 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Search Bar */}
         <div className="mb-8">
           <div className="relative max-w-lg">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -306,7 +315,6 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Recordings Grid */}
         {filteredRecordings.length === 0 ? (
           <Card className="text-center py-12">
             <CardContent>
@@ -338,7 +346,6 @@ const Index = () => {
         )}
       </main>
 
-      {/* Recording Details Dialog */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
@@ -395,7 +402,6 @@ const Index = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Floating Action Button */}
       <Button
         className="fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg"
         onClick={() => setIsRecordingSheetOpen(true)}
