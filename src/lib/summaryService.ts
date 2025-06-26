@@ -1,5 +1,4 @@
-
-import { openai } from './transcription';
+import OpenAI from 'openai';
 
 export interface SummaryProvider {
   name: string;
@@ -41,11 +40,10 @@ export const SUMMARY_PROVIDERS: SummaryProvider[] = [
 ];
 
 export const summarizeWithOpenAI = async (text: string, apiKey: string, model: string = 'gpt-4.1-nano'): Promise<string> => {
-  if (!openai) {
-    throw new Error('OpenAI client not initialized');
-  }
-
-  openai.apiKey = apiKey;
+  const openai = new OpenAI({
+    apiKey,
+    dangerouslyAllowBrowser: true
+  });
 
   const response = await openai.chat.completions.create({
     model,

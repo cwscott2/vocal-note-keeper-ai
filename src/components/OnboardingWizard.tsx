@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +21,7 @@ interface OnboardingWizardProps {
 export const OnboardingWizard = ({ onComplete, showBackButton = false }: OnboardingWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedProvider, setSelectedProvider] = useState('whisper-web');
-  const [selectedSummaryProvider, setSelectedSummaryProvider] = useState('none');
+  const [selectedSummaryProvider, setSelectedSummaryProvider] = useState<'none' | 'huggingface' | 'openai' | 'ollama' | 'lmstudio'>('none');
   const [apiKeys, setApiKeys] = useState({ openai: '', huggingface: '' });
   const [storageOption, setStorageOption] = useState<'indexeddb' | 'filesystem'>('indexeddb');
   const [whisperSupport, setWhisperSupport] = useState<{ supported: boolean; reason?: string } | null>(null);
@@ -196,7 +195,10 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Choose your summary provider</h3>
             
-            <RadioGroup value={selectedSummaryProvider} onValueChange={setSelectedSummaryProvider}>
+            <RadioGroup 
+              value={selectedSummaryProvider} 
+              onValueChange={(value) => setSelectedSummaryProvider(value as 'none' | 'huggingface' | 'openai' | 'ollama' | 'lmstudio')}
+            >
               {SUMMARY_PROVIDERS.map((provider) => (
                 <div key={provider.name} className="flex items-center space-x-2">
                   <RadioGroupItem value={provider.name} id={`summary-${provider.name}`} />
