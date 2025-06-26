@@ -8,9 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Settings as SettingsIcon, Play, RefreshCw } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Settings as SettingsIcon, Play, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react';
 import { db, Settings as SettingsType } from '@/lib/database';
 import { TRANSCRIPTION_PROVIDERS } from '@/lib/transcription';
+import { SUMMARY_PROVIDERS } from '@/lib/summaryService';
 import { checkWhisperWebSupport } from '@/lib/whisperWeb';
 import { toast } from '@/hooks/use-toast';
 
@@ -22,9 +25,11 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [storageUsed, setStorageUsed] = useState(0);
 
   useEffect(() => {
     loadSettings();
+    calculateStorageUsage();
   }, []);
 
   const loadSettings = async () => {
@@ -37,6 +42,24 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
       console.error('Error loading settings:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const calculateStorageUsage = async () => {
+    try {
+      const recordings = await db.recordings.toArray();
+      const audioBlobs = await db.audioBlobs.toArray();
+      let totalSize = 0;
+      
+      audioBlobs.forEach(blob => {
+        totalSize += blob.blob.size;
+      });
+      
+      // Convert to percentage (assuming 1GB limit for demo)
+      const percentage = Math.min((totalSize / (1024 * 1024 * 1024)) * 100, 100);
+      setStorageUsed(percentage);
+    } catch (error) {
+      console.error('Error calculating storage:', error);
     }
   };
 
@@ -65,7 +88,36 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
     }
   };
 
+  const getProviderModels = (provider: string) => {
+    const providerInfo = TRANSCRIPTION_PROVIDERS.find(p => p.name === provider);
+    return providerInfo?.models || [];
+  };
+
+  const getSummaryProviderModels = (provider: string) => {
+    const providerInfo = SUMMARY_PROVIDERS.find(p => p.name === provider);
+    return providerInfo?.models || [];
+  };
+
   const whisperWebSupport = checkWhisperWebSupport();
+
+  const handleSelectFolder = async () => {
+    try {
+      // @ts-ignore - FileSystemDirectoryHandle might not be in types
+      const handle = await window.showDirectoryPicker();
+      await updateSettings({ fileSystemHandle: handle });
+      toast({
+        title: "Folder selected",
+        description: "Storage location updated successfully"
+      });
+    } catch (error) {
+      console.error('Error selecting folder:', error);
+      toast({
+        title: "Error",
+        description: "Failed to select folder",
+        variant: "destructive"
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -99,11 +151,11 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
         {/* Transcription Settings */}
         <Card>
           <CardHeader>
-            <CardTitle>Transcription Provider</CardTitle>
+            <CardTitle>Transcription Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Selected Provider</Label>
+              <Label>Provider</Label>
               <Select
                 value={settings?.selectedProvider || ''}
                 onValueChange={(value) => updateSettings({ selectedProvider: value })}
@@ -132,6 +184,206 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
                 </p>
               )}
             </div>
+
+            <div>
+              <Label>Model</Label>
+              <Select
+                value={settings?.selectedModel || ''}
+                onValueChange={(value) => updateSettings({ selectedModel: value })}
+                disabled={!settings?.selectedProvider}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getProviderModels(settings?.selectedProvider || '').map((model) => (
+                    <SelectItem key={model} value={model}>
+                      {model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="language">Language</Label>
+              <Select
+                value={settings?.language || 'en'}
+                onValueChange={(value) => updateSettings({ language: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Autodetect</SelectItem>
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="es">Spanish</SelectItem>
+                  <SelectItem value="fr">French</SelectItem>
+                  <SelectItem value="de">German</SelectItem>
+                  <SelectItem value="it">Italian</SelectItem>
+                  <SelectItem value="pt">Portuguese</SelectItem>
+                </SelectContent>
+              </Select>
+              {settings?.language === 'auto' && settings?.selectedProvider !== 'openai' && (
+                <Alert className="mt-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription>
+                    Autodetect requires OpenAI provider
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            <Button variant="outline" className="w-full">
+              Test Transcription
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Summary Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Summary Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>Summary Provider</Label>
+              <Select
+                value={settings?.summaryProvider || 'none'}
+                onValueChange={(value) => updateSettings({ summaryProvider: value as any })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUMMARY_PROVIDERS.map((provider) => (
+                    <SelectItem key={provider.name} value={provider.name}>
+                      {provider.displayName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {settings?.summaryProvider === 'ollama' && (
+              <>
+                <div>
+                  <Label htmlFor="ollama-url">Server URL & Port</Label>
+                  <Input
+                    id="ollama-url"
+                    placeholder="http://localhost:11434"
+                    value={settings?.ollamaUrl || ''}
+                    onChange={(e) => updateSettings({ ollamaUrl: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ollama-model">Model</Label>
+                  <Input
+                    id="ollama-model"
+                    placeholder="llama3.1:8b"
+                    value={settings?.summaryModel || ''}
+                    onChange={(e) => updateSettings({ summaryModel: e.target.value })}
+                    required
+                  />
+                </div>
+                <Alert>
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription>
+                    Ensure you've installed Ollama, downloaded, setup and are running a model.{' '}
+                    <a href="http://localhost:11434" target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-blue-600 hover:underline">
+                      Detailed Guide here <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                  </AlertDescription>
+                </Alert>
+              </>
+            )}
+
+            {settings?.summaryProvider === 'lmstudio' && (
+              <>
+                <div>
+                  <Label htmlFor="lmstudio-url">Server URL & Port</Label>
+                  <Input
+                    id="lmstudio-url"
+                    placeholder="http://192.168.0.11:1234"
+                    value={settings?.lmstudioUrl || ''}
+                    onChange={(e) => updateSettings({ lmstudioUrl: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lmstudio-model">Model</Label>
+                  <Input
+                    id="lmstudio-model"
+                    placeholder="google/gemma-3-4b"
+                    value={settings?.summaryModel || ''}
+                    onChange={(e) => updateSettings({ summaryModel: e.target.value })}
+                    required
+                  />
+                </div>
+                <Alert>
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription>
+                    Ensure you've installed LM Studio, it is running & the model loaded. Detail Guide here
+                  </AlertDescription>
+                </Alert>
+              </>
+            )}
+
+            {settings?.summaryProvider === 'huggingface' && (
+              <>
+                {!settings?.hfApiKey && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="w-4 h-4" />
+                    <AlertDescription>
+                      HuggingFace API key is not setup
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <div>
+                  <Label htmlFor="hf-summary-model">Model</Label>
+                  <Input
+                    id="hf-summary-model"
+                    placeholder="Falconsai/text_summarization"
+                    value={settings?.summaryModel || 'Falconsai/text_summarization'}
+                    onChange={(e) => updateSettings({ summaryModel: e.target.value })}
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {settings?.summaryProvider === 'openai' && (
+              <>
+                {!settings?.openaiApiKey && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="w-4 h-4" />
+                    <AlertDescription>
+                      OpenAI API key is not setup
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <div>
+                  <Label>Model</Label>
+                  <Select
+                    value={settings?.summaryModel || 'gpt-4.1-nano'}
+                    onValueChange={(value) => updateSettings({ summaryModel: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gpt-4o-mini">GPT 4o-mini</SelectItem>
+                      <SelectItem value="gpt-4.1-nano">GPT 4.1-nano (Default)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
+            {settings?.summaryProvider !== 'none' && (
+              <Button variant="outline" className="w-full">
+                Test Summarisation
+              </Button>
+            )}
           </CardContent>
         </Card>
 
@@ -151,7 +403,7 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
                 onChange={(e) => updateSettings({ openaiApiKey: e.target.value })}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Used for OpenAI Whisper transcription
+                Used for OpenAI Whisper transcription and/or summarization
               </p>
             </div>
             <div>
@@ -164,7 +416,7 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
                 onChange={(e) => updateSettings({ hfApiKey: e.target.value })}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Used for Hugging Face Whisper models
+                Used for Hugging Face Whisper models and/or summarization
               </p>
             </div>
           </CardContent>
@@ -176,41 +428,40 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
             <CardTitle>Recording Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="language">Language</Label>
-              <Select
-                value={settings?.language || 'en'}
-                onValueChange={(value) => updateSettings({ language: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="es">Spanish</SelectItem>
-                  <SelectItem value="fr">French</SelectItem>
-                  <SelectItem value="de">German</SelectItem>
-                  <SelectItem value="it">Italian</SelectItem>
-                  <SelectItem value="pt">Portuguese</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Save Recordings</Label>
+                <p className="text-xs text-muted-foreground">
+                  Only enabled if File System is selected
+                </p>
+              </div>
+              <Switch
+                checked={settings?.saveRecordings || false}
+                onCheckedChange={(checked) => updateSettings({ saveRecordings: checked })}
+                disabled={settings?.saveLocation !== 'filesystem'}
+              />
             </div>
+            
             <div>
               <Label htmlFor="max-duration">Max Recording Duration (minutes)</Label>
-              <Select
-                value={settings?.maxDuration?.toString() || '30'}
-                onValueChange={(value) => updateSettings({ maxDuration: parseInt(value) * 60 })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="300">5 minutes</SelectItem>
-                  <SelectItem value="900">15 minutes</SelectItem>
-                  <SelectItem value="1800">30 minutes</SelectItem>
-                  <SelectItem value="3600">60 minutes</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                id="max-duration"
+                type="number"
+                max={60}
+                value={Math.floor((settings?.maxDuration || 1800) / 60)}
+                onChange={(e) => updateSettings({ maxDuration: parseInt(e.target.value) * 60 })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Recording will stop automatically after this
+              </p>
+              {settings?.maxDuration && settings.maxDuration > 1500 && settings?.selectedProvider !== 'openai' && (
+                <Alert className="mt-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription>
+                    The model {settings?.selectedModel} from {settings?.selectedProvider} only supports max 25 mins, audio will be chunked before getting processed
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -220,7 +471,15 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
           <CardHeader>
             <CardTitle>Storage Settings</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Storage Used</Label>
+                <span className="text-sm text-muted-foreground">{storageUsed.toFixed(1)}%</span>
+              </div>
+              <Progress value={storageUsed} className="w-full" />
+            </div>
+            
             <div>
               <Label>Storage Location</Label>
               <Select
@@ -232,13 +491,19 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="indexeddb">Browser Storage (IndexedDB)</SelectItem>
-                  <SelectItem value="filesystem">File System Access API</SelectItem>
+                  <SelectItem value="filesystem">File System</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
                 Choose where to store your recordings and transcriptions
               </p>
             </div>
+
+            {settings?.saveLocation === 'filesystem' && (
+              <Button onClick={handleSelectFolder} variant="outline" className="w-full">
+                Open Folder Selector
+              </Button>
+            )}
           </CardContent>
         </Card>
 

@@ -10,16 +10,19 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, AlertCircle, Download, Folder, HardDrive } from 'lucide-react';
 import { canUseWhisperWeb, TRANSCRIPTION_PROVIDERS } from '@/lib/transcription';
+import { SUMMARY_PROVIDERS } from '@/lib/summaryService';
 import { db, Settings } from '@/lib/database';
 import { toast } from '@/hooks/use-toast';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
+  showBackButton?: boolean;
 }
 
-export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
+export const OnboardingWizard = ({ onComplete, showBackButton = false }: OnboardingWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedProvider, setSelectedProvider] = useState('whisper-web');
+  const [selectedSummaryProvider, setSelectedSummaryProvider] = useState('none');
   const [apiKeys, setApiKeys] = useState({ openai: '', huggingface: '' });
   const [storageOption, setStorageOption] = useState<'indexeddb' | 'filesystem'>('indexeddb');
   const [whisperSupport, setWhisperSupport] = useState<{ supported: boolean; reason?: string } | null>(null);
@@ -29,6 +32,7 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
   const steps = [
     'Capability Check',
     'Choose Provider',
+    'Choose Summary Provider',
     'Setup Provider',
     'Storage Options',
     'Complete Setup'
@@ -44,7 +48,7 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
   }, []);
 
   const handleNext = async () => {
-    if (currentStep === 2 && selectedProvider === 'whisper-web') {
+    if (currentStep === 3 && selectedProvider === 'whisper-web') {
       // Download whisper model
       setIsDownloading(true);
       try {
@@ -75,6 +79,14 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
     }
   };
 
+  const handleBack = () => {
+    if (currentStep === 0 && showBackButton) {
+      onComplete(); // Go back to settings
+    } else if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   const completeOnboarding = async () => {
     try {
       const settings: Omit<Settings, 'id'> = {
@@ -84,13 +96,17 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
         hfApiKey: apiKeys.huggingface || undefined,
         saveLocation: storageOption,
         language: 'en',
-        maxDuration: 1800
+        maxDuration: 1800,
+        summaryProvider: selectedSummaryProvider,
+        saveRecordings: storageOption === 'filesystem'
       };
 
       await db.settings.clear();
       await db.settings.add(settings);
       
-      localStorage.setItem('onboarding-completed', 'true');
+      if (!showBackButton) {
+        localStorage.setItem('onboarding-completed', 'true');
+      }
       onComplete();
       
       toast({
@@ -175,7 +191,31 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           </div>
         );
 
-      case 2: // Setup Provider
+      case 2: // Choose Summary Provider
+        return (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Choose your summary provider</h3>
+            
+            <RadioGroup value={selectedSummaryProvider} onValueChange={setSelectedSummaryProvider}>
+              {SUMMARY_PROVIDERS.map((provider) => (
+                <div key={provider.name} className="flex items-center space-x-2">
+                  <RadioGroupItem value={provider.name} id={`summary-${provider.name}`} />
+                  <Label htmlFor={`summary-${provider.name}`} className="flex items-center gap-2">
+                    {provider.displayName}
+                    {provider.requiresApiKey && (
+                      <Badge variant="outline">API Key Required</Badge>
+                    )}
+                    {provider.name === 'none' && (
+                      <Badge variant="secondary">Default</Badge>
+                    )}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </div>
+        );
+
+      case 3: // Setup Provider
         if (selectedProvider === 'whisper-web') {
           return (
             <div className="space-y-4">
@@ -200,9 +240,9 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
 
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Enter API Key</h3>
+            <h3 className="text-lg font-semibold">Enter API Keys</h3>
             
-            {selectedProvider === 'openai' && (
+            {(selectedProvider === 'openai' || selectedSummaryProvider === 'openai') && (
               <div className="space-y-2">
                 <Label htmlFor="openai-key">OpenAI API Key</Label>
                 <Input
@@ -213,12 +253,17 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                   onChange={(e) => setApiKeys(prev => ({ ...prev, openai: e.target.value }))}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Get your API key from the OpenAI platform
+                  {selectedProvider === 'openai' && selectedSummaryProvider === 'openai' 
+                    ? 'Used for both transcription and summarization'
+                    : selectedProvider === 'openai' 
+                    ? 'Used for transcription'
+                    : 'Used for summarization'
+                  }
                 </p>
               </div>
             )}
 
-            {selectedProvider === 'huggingface' && (
+            {(selectedProvider === 'huggingface' || selectedSummaryProvider === 'huggingface') && (
               <div className="space-y-2">
                 <Label htmlFor="hf-key">Hugging Face API Key</Label>
                 <Input
@@ -229,14 +274,23 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
                   onChange={(e) => setApiKeys(prev => ({ ...prev, huggingface: e.target.value }))}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Get your API key from huggingface.co
+                  {selectedProvider === 'huggingface' && selectedSummaryProvider === 'huggingface' 
+                    ? 'Used for both transcription and summarization'
+                    : selectedProvider === 'huggingface' 
+                    ? 'Used for transcription'
+                    : 'Used for summarization'
+                  }
                 </p>
               </div>
+            )}
+
+            {selectedSummaryProvider === 'none' && selectedProvider !== 'openai' && selectedProvider !== 'huggingface' && (
+              <p className="text-muted-foreground">No API keys required for your selected configuration.</p>
             )}
           </div>
         );
 
-      case 3: // Storage Options
+      case 4: // Storage Options
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Choose storage location</h3>
@@ -269,7 +323,7 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           </div>
         );
 
-      case 4: // Complete
+      case 5: // Complete
         return (
           <div className="space-y-4 text-center">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
@@ -290,9 +344,15 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
       case 1:
         return selectedProvider !== '';
       case 2:
+        return selectedSummaryProvider !== '';
+      case 3:
         if (selectedProvider === 'whisper-web') return !isDownloading;
-        if (selectedProvider === 'openai') return apiKeys.openai.length > 0;
-        if (selectedProvider === 'huggingface') return apiKeys.huggingface.length > 0;
+        if (selectedProvider === 'openai' || selectedSummaryProvider === 'openai') {
+          return apiKeys.openai.length > 0;
+        }
+        if (selectedProvider === 'huggingface' || selectedSummaryProvider === 'huggingface') {
+          return apiKeys.huggingface.length > 0;
+        }
         return true;
       default:
         return true;
@@ -303,7 +363,9 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader>
-          <CardTitle className="text-center">Welcome to AI Note Taker</CardTitle>
+          <CardTitle className="text-center">
+            {showBackButton ? 'Setup Wizard' : 'Welcome to AI Note Taker'}
+          </CardTitle>
           <div className="space-y-2">
             <Progress value={(currentStep / (steps.length - 1)) * 100} />
             <p className="text-sm text-muted-foreground text-center">
@@ -318,17 +380,17 @@ export const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
           <div className="flex justify-between">
             <Button
               variant="outline"
-              onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-              disabled={currentStep === 0}
+              onClick={handleBack}
+              disabled={currentStep === 0 && !showBackButton}
             >
-              Back
+              {currentStep === 0 && showBackButton ? 'Close' : 'Back'}
             </Button>
             
             <Button
               onClick={handleNext}
               disabled={!canProceed()}
             >
-              {currentStep === steps.length - 1 ? 'Get Started' : 'Next'}
+              {currentStep === steps.length - 1 ? 'Complete Setup' : 'Next'}
             </Button>
           </div>
         </CardContent>

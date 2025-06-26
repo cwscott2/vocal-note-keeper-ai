@@ -12,11 +12,14 @@ export interface Recording {
   transcriptMD?: string;
   audioBlobHandle: string; // IDB key or file handle reference
   audioBlob?: Blob;
+  processingStep?: 'transcribing' | 'summarizing' | 'completed' | 'failed';
+  processingProgress?: number;
 }
 
 export interface Settings {
   id?: number;
   selectedProvider: string;
+  selectedModel?: string;
   whisperModels: string[];
   hfApiKey?: string;
   openaiApiKey?: string;
@@ -24,6 +27,12 @@ export interface Settings {
   language: string;
   maxDuration: number;
   fileSystemHandle?: FileSystemDirectoryHandle;
+  saveRecordings?: boolean;
+  // Summary settings
+  summaryProvider: 'none' | 'huggingface' | 'openai' | 'ollama' | 'lmstudio';
+  summaryModel?: string;
+  ollamaUrl?: string;
+  lmstudioUrl?: string;
 }
 
 export interface ModelInfo {
@@ -62,7 +71,9 @@ export const initializeDefaultSettings = async () => {
       whisperModels: [],
       saveLocation: 'indexeddb',
       language: 'en',
-      maxDuration: 1800 // 30 minutes
+      maxDuration: 1800, // 30 minutes
+      saveRecordings: false,
+      summaryProvider: 'none'
     });
   }
 };
