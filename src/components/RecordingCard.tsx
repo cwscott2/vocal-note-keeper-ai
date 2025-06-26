@@ -1,9 +1,8 @@
 
 import { Recording } from '@/lib/database';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play } from 'lucide-react';
+import { Play, Clock } from 'lucide-react';
 import { formatRelativeTime, formatDuration } from '@/lib/timeUtils';
 
 interface RecordingCardProps {
@@ -13,7 +12,7 @@ interface RecordingCardProps {
   onDelete: (recording: Recording) => void;
 }
 
-export const RecordingCard = ({ recording, onPlay, onEdit, onDelete }: RecordingCardProps) => {
+export const RecordingCard = ({ recording, onPlay }: RecordingCardProps) => {
   const getStatusBadge = (provider: string) => {
     if (provider === 'pending') {
       return <Badge variant="secondary">Pending</Badge>;
@@ -24,7 +23,7 @@ export const RecordingCard = ({ recording, onPlay, onEdit, onDelete }: Recording
     if (provider === 'failed') {
       return <Badge variant="destructive">Failed</Badge>;
     }
-    return null; // Don't show badge for completed transcriptions
+    return null;
   };
 
   return (
@@ -39,25 +38,17 @@ export const RecordingCard = ({ recording, onPlay, onEdit, onDelete }: Recording
         <div className="space-y-2">
           {getStatusBadge(recording.provider)}
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>{formatDuration(recording.duration)}</span>
-            <span>{formatRelativeTime(recording.createdAt)}</span>
+            <div className="flex items-center gap-1">
+              <Play className="w-3 h-3" />
+              <span>{formatDuration(recording.duration)}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              <span>{formatRelativeTime(recording.createdAt)}</span>
+            </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onPlay(recording);
-          }}
-          className="w-full"
-        >
-          <Play className="w-4 h-4 mr-2" />
-          Open Details
-        </Button>
-      </CardContent>
     </Card>
   );
 };

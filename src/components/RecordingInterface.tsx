@@ -35,7 +35,6 @@ export const RecordingInterface = ({ onRecordingComplete, maxDuration }: Recordi
     setIsProcessing(true);
     const audioBlob = await stopRecording();
     if (audioBlob) {
-      // Convert to mono and compress if needed
       const processedBlob = await processAudioBlob(audioBlob);
       onRecordingComplete(processedBlob, state.duration);
     }
@@ -150,14 +149,17 @@ export const RecordingInterface = ({ onRecordingComplete, maxDuration }: Recordi
   const isNearLimit = progressPercentage > 90;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Record Audio */}
+    <div className="space-y-6">
+      {/* Record Audio - First Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mic className="w-5 h-5" />
             Record Audio
           </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Max duration: {formatTime(maxDuration)}
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {!state.isRecording ? (
@@ -225,7 +227,7 @@ export const RecordingInterface = ({ onRecordingComplete, maxDuration }: Recordi
         </CardContent>
       </Card>
 
-      {/* Upload Audio */}
+      {/* Upload Audio - Second Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

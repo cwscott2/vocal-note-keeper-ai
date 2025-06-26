@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { AlertCircle } from 'lucide-react';
 import { Settings } from '@/lib/database';
 import { TRANSCRIPTION_PROVIDERS } from '@/lib/transcription';
 import { checkWhisperWebSupport } from '@/lib/whisperWeb';
+import { TestTranscriptionDialog } from '@/components/TestTranscriptionDialog';
 
 interface TranscriptionSettingsProps {
   settings: Settings | null;
@@ -15,6 +17,8 @@ interface TranscriptionSettingsProps {
 }
 
 export const TranscriptionSettings = ({ settings, onUpdateSettings }: TranscriptionSettingsProps) => {
+  const [showTestDialog, setShowTestDialog] = useState(false);
+
   const getProviderModels = (provider: string) => {
     const providerInfo = TRANSCRIPTION_PROVIDERS.find(p => p.name === provider);
     return providerInfo?.models || [];
@@ -104,9 +108,20 @@ export const TranscriptionSettings = ({ settings, onUpdateSettings }: Transcript
         )}
       </div>
 
-      <Button variant="outline" className="w-full">
+      <Button 
+        variant="outline" 
+        className="w-full"
+        onClick={() => setShowTestDialog(true)}
+        disabled={!settings?.selectedProvider}
+      >
         Test Transcription
       </Button>
+
+      <TestTranscriptionDialog
+        isOpen={showTestDialog}
+        onClose={() => setShowTestDialog(false)}
+        settings={settings}
+      />
     </div>
   );
 };

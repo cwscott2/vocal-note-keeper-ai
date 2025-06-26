@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { Recording, db } from '@/lib/database';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -32,6 +33,7 @@ export const RecordingDetailsPanel = ({
   const [editedSummary, setEditedSummary] = useState('');
   const [editedTranscript, setEditedTranscript] = useState('');
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [defaultTab, setDefaultTab] = useState('summary');
   
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -39,6 +41,14 @@ export const RecordingDetailsPanel = ({
     if (recording) {
       setEditedSummary(recording.summaryMD || '');
       setEditedTranscript(recording.transcriptMD || '');
+      
+      // Default to transcript tab if no summary is available
+      if (!recording.summaryMD || recording.summaryMD.trim() === '') {
+        setDefaultTab('transcript');
+      } else {
+        setDefaultTab('summary');
+      }
+      
       loadAudioBlob();
     }
   }, [recording]);
@@ -104,10 +114,13 @@ export const RecordingDetailsPanel = ({
     if (provider === 'failed') {
       return <Badge variant="destructive">Failed</Badge>;
     }
-    return null; // Don't show badge for completed transcriptions
+    return null;
   };
 
   if (!recording) return null;
+
+  const hasAudio = audioBlob !== null;
+  const hasSummary = recording.summaryMD && recording.summaryMD.trim() !== '';
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -127,8 +140,8 @@ export const RecordingDetailsPanel = ({
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
-          {/* Audio Player */}
-          {audioBlob && (
+          {/* Audio Player - Only show if audio is available */}
+          {hasAudio && (
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Button
@@ -178,19 +191,10 @@ export const RecordingDetailsPanel = ({
                 Retry
               </Button>
             )}
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => onDelete(recording)}
-              className="flex-1"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </Button>
           </div>
 
           {/* Content Tabs */}
-          <Tabs defaultValue="summary" className="flex-1">
+          <Tabs value={defaultTab} onValueChange={setDefaultTab} className="flex-1">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="summary">Summary</TabsTrigger>
               <TabsTrigger value="transcript">Transcript</TabsTrigger>
@@ -200,7 +204,7 @@ export const RecordingDetailsPanel = ({
               <Textarea
                 value={editedSummary}
                 onChange={(e) => setEditedSummary(e.target.value)}
-                placeholder="Summary will appear here after transcription..."
+                placeholder={hasSummary ? "Summary will appear here..." : "No summary available. Check summary settings or switch to transcript tab."}
                 className="min-h-[300px] resize-none"
               />
             </TabsContent>
@@ -215,13 +219,24 @@ export const RecordingDetailsPanel = ({
             </TabsContent>
           </Tabs>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>
-              Close
+          <div className="flex justify-between items-center pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => onDelete(recording)}
+              className="border-red-500 text-red-500 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
             </Button>
-            <Button onClick={handleSaveChanges}>
-              Save Changes
-            </Button>
+            
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+              <Button onClick={handleSaveChanges}>
+                Save Changes
+              </Button>
+            </div>
           </div>
         </div>
       </SheetContent>
