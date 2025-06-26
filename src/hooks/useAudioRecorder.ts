@@ -24,6 +24,23 @@ export const useAudioRecorder = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const pausedTimeRef = useRef<number>(0);
+
+  const updateTimer = useCallback(() => {
+    if (!state.isPaused && state.isRecording) {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000);
+      setState(prev => ({ ...prev, duration: elapsed }));
+      
+      // Update audio level
+      if (analyserRef.current) {
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+        setState(prev => ({ ...prev, audioLevel: average / 255 }));
+      }
+    }
+  }, [state.isPaused, state.isRecording]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -32,7 +49,9 @@ export const useAudioRecorder = () => {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 16000, // Lower sample rate for better compression
+          channelCount: 1 // Mono audio
         } 
       });
       
@@ -45,9 +64,10 @@ export const useAudioRecorder = () => {
       source.connect(analyserRef.current);
       analyserRef.current.fftSize = 256;
 
-      // Set up MediaRecorder with small timeslices for memory efficiency
+      // Set up MediaRecorder with optimized settings
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 32000 // Lower bitrate for smaller files
       });
 
       mediaRecorderRef.current = mediaRecorder;
@@ -61,20 +81,12 @@ export const useAudioRecorder = () => {
 
       mediaRecorder.start(1000); // 1 second timeslices
 
+      startTimeRef.current = Date.now();
+      pausedTimeRef.current = 0;
       setState(prev => ({ ...prev, isRecording: true, duration: 0 }));
 
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setState(prev => ({ ...prev, duration: prev.duration + 1 }));
-        
-        // Update audio level
-        if (analyserRef.current) {
-          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-          analyserRef.current.getByteFrequencyData(dataArray);
-          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-          setState(prev => ({ ...prev, audioLevel: average / 255 }));
-        }
-      }, 1000);
+      // Start timer with more frequent updates
+      timerRef.current = setInterval(updateTimer, 100);
 
       toast({
         title: "Recording started",
@@ -89,7 +101,7 @@ export const useAudioRecorder = () => {
         variant: "destructive"
       });
     }
-  }, []);
+  }, [updateTimer]);
 
   const stopRecording = useCallback(async (): Promise<Blob | null> => {
     return new Promise((resolve) => {
@@ -127,15 +139,17 @@ export const useAudioRecorder = () => {
   }, []);
 
   const pauseRecording = useCallback(() => {
-    if (mediaRecorderRef.current && state.isRecording) {
+    if (mediaRecorderRef.current && state.isRecording && !state.isPaused) {
       mediaRecorderRef.current.pause();
+      pausedTimeRef.current += Date.now() - startTimeRef.current - pausedTimeRef.current;
       setState(prev => ({ ...prev, isPaused: true }));
     }
-  }, [state.isRecording]);
+  }, [state.isRecording, state.isPaused]);
 
   const resumeRecording = useCallback(() => {
     if (mediaRecorderRef.current && state.isPaused) {
       mediaRecorderRef.current.resume();
+      startTimeRef.current = Date.now();
       setState(prev => ({ ...prev, isPaused: false }));
     }
   }, [state.isPaused]);

@@ -47,34 +47,37 @@ export const transcribeWithOpenAI = async (audioBlob: Blob, apiKey: string, mode
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('OpenAI API error:', errorText);
+    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}\n${errorText}`);
   }
 
   return await response.text();
 };
 
 export const transcribeWithHuggingFace = async (audioBlob: Blob, apiKey: string, model: string): Promise<string> => {
-  // Convert blob to base64 for HF API
-  const arrayBuffer = await audioBlob.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-
   const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+      'Content-Type': 'audio/flac',
     },
-    body: JSON.stringify({
-      inputs: base64
-    }),
+    body: audioBlob,
   });
 
   if (!response.ok) {
-    throw new Error(`Hugging Face API error: ${response.statusText}`);
+    const errorText = await response.text();
+    console.error('Hugging Face API error:', errorText);
+    throw new Error(`Hugging Face API error: ${response.status} ${response.statusText}\n${errorText}`);
   }
 
   const result = await response.json();
-  return result.text || 'Transcription failed';
+  
+  if (result.error) {
+    throw new Error(`Hugging Face API error: ${result.error}`);
+  }
+  
+  return result.text || result[0]?.text || 'Transcription failed - no text returned';
 };
 
 // Use the enhanced support detection from whisperWeb

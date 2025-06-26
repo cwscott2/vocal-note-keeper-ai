@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { RecordingCard } from '@/components/RecordingCard';
 import { RecordingInterface } from '@/components/RecordingInterface';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -16,6 +16,8 @@ import { transcribeWithOpenAI, transcribeWithHuggingFace, transcribeWithWhisperW
 import { usePWA } from '@/hooks/usePWA';
 import { toast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { RecordingDetailsPanel } from '@/components/RecordingDetailsPanel';
+import Settings from '@/pages/Settings';
 
 const Index = () => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -25,8 +27,8 @@ const Index = () => {
   const [isRecordingSheetOpen, setIsRecordingSheetOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [editedSummary, setEditedSummary] = useState('');
-  const [editedTranscript, setEditedTranscript] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const { isOnline, installPrompt, isInstalled, installApp } = usePWA();
 
@@ -70,8 +72,8 @@ const Index = () => {
         provider: 'pending',
         language: 'en',
         audioBlobHandle: audioBlobId,
-        transcriptMD: 'Transcription in progress...',
-        summaryMD: 'Summary will be generated after transcription...'
+        transcriptMD: '',
+        summaryMD: ''
       };
       
       const recordingId = await db.recordings.add(newRecording);
@@ -102,19 +104,24 @@ const Index = () => {
 
   const transcribeRecording = async (recording: Recording, audioBlob: Blob) => {
     try {
+      await db.recordings.update(recording.id!, { provider: 'processing' });
+      setRecordings(prev => prev.map(r => 
+        r.id === recording.id ? { ...r, provider: 'processing' } : r
+      ));
+
       const settings = await db.settings.toArray();
       const currentSettings = settings[0];
       
       let transcription = '';
       let provider = '';
 
-      // Try selected provider first
       if (currentSettings?.selectedProvider === 'whisper-web') {
         try {
           transcription = await transcribeWithWhisperWeb(audioBlob, 'tiny');
           provider = 'whisper-web';
         } catch (error) {
           console.error('Whisper Web transcription failed:', error);
+          throw error;
         }
       } else if (currentSettings?.selectedProvider === 'openai' && currentSettings.openaiApiKey) {
         try {
@@ -122,6 +129,7 @@ const Index = () => {
           provider = 'openai';
         } catch (error) {
           console.error('OpenAI transcription failed:', error);
+          throw error;
         }
       } else if (currentSettings?.selectedProvider === 'huggingface' && currentSettings.hfApiKey) {
         try {
@@ -133,7 +141,10 @@ const Index = () => {
           provider = 'huggingface';
         } catch (error) {
           console.error('Hugging Face transcription failed:', error);
+          throw error;
         }
+      } else {
+        throw new Error('No valid transcription provider configured');
       }
 
       if (transcription) {
@@ -154,30 +165,71 @@ const Index = () => {
           description: `Successfully transcribed using ${provider}`
         });
       } else {
-        throw new Error('All transcription providers failed');
+        throw new Error('No transcription returned');
       }
     } catch (error) {
       console.error('Transcription error:', error);
+      
+      await db.recordings.update(recording.id!, { provider: 'failed' });
+      setRecordings(prev => prev.map(r => 
+        r.id === recording.id ? { ...r, provider: 'failed' } : r
+      ));
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorPreview = errorMessage.split('\n').slice(0, 3).join('\n');
+      
       toast({
         title: "Transcription failed",
-        description: "Please check your API keys and try again",
+        description: (
+          <div className="space-y-2">
+            <p>Please check your API keys and try again</p>
+            <code 
+              className="block p-2 bg-muted rounded cursor-pointer text-xs"
+              onClick={() => navigator.clipboard.writeText(errorMessage)}
+              title="Click to copy full error"
+            >
+              {errorPreview}
+              {errorMessage.length > errorPreview.length && '...'}
+            </code>
+          </div>
+        ),
         variant: "destructive"
       });
     }
   };
 
-  const handlePlayRecording = (recording: Recording) => {
+  const handleRecordingClick = (recording: Recording) => {
     setSelectedRecording(recording);
-    setEditedSummary(recording.summaryMD || '');
-    setEditedTranscript(recording.transcriptMD || '');
     setIsDetailsOpen(true);
   };
 
-  const handleEditRecording = (recording: Recording) => {
-    setSelectedRecording(recording);
-    setEditedSummary(recording.summaryMD || '');
-    setEditedTranscript(recording.transcriptMD || '');
-    setIsDetailsOpen(true);
+  const handleRetryTranscription = (recording: Recording) => {
+    // Load audio blob and retry transcription
+    db.audioBlobs.get(recording.audioBlobHandle).then(audioData => {
+      if (audioData) {
+        transcribeRecording(recording, audioData.blob);
+      }
+    });
+  };
+
+  const handleSaveRecording = async (recording: Recording, updates: Partial<Recording>) => {
+    try {
+      await db.recordings.update(recording.id!, updates);
+      setRecordings(prev => prev.map(r => 
+        r.id === recording.id ? { ...r, ...updates } : r
+      ));
+      toast({
+        title: "Changes saved",
+        description: "Recording has been updated successfully"
+      });
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save changes",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDeleteRecording = async (recording: Recording) => {
@@ -201,34 +253,13 @@ const Index = () => {
     }
   };
 
-  const handleSaveChanges = async () => {
-    if (selectedRecording) {
-      try {
-        await db.recordings.update(selectedRecording.id!, {
-          summaryMD: editedSummary,
-          transcriptMD: editedTranscript
-        });
-        
-        setRecordings(prev => prev.map(r => 
-          r.id === selectedRecording.id 
-            ? { ...r, summaryMD: editedSummary, transcriptMD: editedTranscript }
-            : r
-        ));
-        
-        toast({
-          title: "Changes saved",
-          description: "Recording has been updated successfully"
-        });
-      } catch (error) {
-        console.error('Error saving changes:', error);
-        toast({
-          title: "Error",
-          description: "Failed to save changes",
-          variant: "destructive"
-        });
-      }
-    }
-  };
+  if (showOnboarding) {
+    return <OnboardingWizard onComplete={() => setShowOnboarding(false)} />;
+  }
+
+  if (showSettings) {
+    return <Settings onLaunchWizard={() => setShowOnboarding(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -265,7 +296,7 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </Button>
@@ -276,7 +307,7 @@ const Index = () => {
                     New Recording
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="bottom" className="h-[80vh]">
+                <SheetContent side="left" className="w-full sm:max-w-2xl">
                   <SheetHeader>
                     <SheetTitle>Create New Recording</SheetTitle>
                   </SheetHeader>
@@ -337,8 +368,8 @@ const Index = () => {
               <RecordingCard
                 key={recording.id}
                 recording={recording}
-                onPlay={handlePlayRecording}
-                onEdit={handleEditRecording}
+                onPlay={handleRecordingClick}
+                onEdit={handleRecordingClick}
                 onDelete={handleDeleteRecording}
               />
             ))}
@@ -346,61 +377,14 @@ const Index = () => {
         )}
       </main>
 
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span className="truncate">{selectedRecording?.title}</span>
-              <div className="flex items-center gap-2 ml-4">
-                <Badge variant="secondary">
-                  {selectedRecording?.provider}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {selectedRecording?.createdAt && formatDistanceToNow(selectedRecording.createdAt, { addSuffix: true })}
-                </span>
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-hidden">
-            <Tabs defaultValue="summary" className="h-full flex flex-col">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="summary">Summary</TabsTrigger>
-                <TabsTrigger value="transcript">Transcript</TabsTrigger>
-              </TabsList>
-              
-              <div className="flex-1 overflow-hidden mt-4">
-                <TabsContent value="summary" className="h-full">
-                  <Textarea
-                    value={editedSummary}
-                    onChange={(e) => setEditedSummary(e.target.value)}
-                    placeholder="Summary will appear here after transcription..."
-                    className="h-full resize-none"
-                  />
-                </TabsContent>
-                
-                <TabsContent value="transcript" className="h-full">
-                  <Textarea
-                    value={editedTranscript}
-                    onChange={(e) => setEditedTranscript(e.target.value)}
-                    placeholder="Transcript will appear here..."
-                    className="h-full resize-none"
-                  />
-                </TabsContent>
-              </div>
-              
-              <div className="mt-4 flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
-                  Close
-                </Button>
-                <Button onClick={handleSaveChanges}>
-                  Save Changes
-                </Button>
-              </div>
-            </Tabs>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <RecordingDetailsPanel
+        recording={selectedRecording}
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        onDelete={handleDeleteRecording}
+        onRetry={handleRetryTranscription}
+        onSave={handleSaveRecording}
+      />
 
       <Button
         className="fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg"

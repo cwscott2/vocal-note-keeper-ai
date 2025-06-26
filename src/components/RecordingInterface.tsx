@@ -4,17 +4,28 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Mic, MicOff, Square, Play, Pause, Upload } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Mic, MicOff, Square, Play, Pause, Upload, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 interface RecordingInterfaceProps {
   onRecordingComplete: (audioBlob: Blob, duration: number) => void;
   maxDuration: number;
 }
 
+const ALLOWED_TYPES = {
+  openai: ['.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm'],
+  huggingface: ['.mp3', '.wav', '.flac']
+};
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+const MAX_DURATION = 25 * 60; // 25 minutes
+
 export const RecordingInterface = ({ onRecordingComplete, maxDuration }: RecordingInterfaceProps) => {
   const { state, startRecording, stopRecording, pauseRecording, resumeRecording } = useAudioRecorder();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleStartRecording = async () => {
     await startRecording();
@@ -24,15 +35,108 @@ export const RecordingInterface = ({ onRecordingComplete, maxDuration }: Recordi
     setIsProcessing(true);
     const audioBlob = await stopRecording();
     if (audioBlob) {
-      onRecordingComplete(audioBlob, state.duration);
+      // Convert to mono and compress if needed
+      const processedBlob = await processAudioBlob(audioBlob);
+      onRecordingComplete(processedBlob, state.duration);
     }
     setIsProcessing(false);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const processAudioBlob = async (blob: Blob): Promise<Blob> => {
+    try {
+      // Create audio context for processing
+      const audioContext = new AudioContext();
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      // Convert to mono if stereo
+      let processedBuffer = audioBuffer;
+      if (audioBuffer.numberOfChannels > 1) {
+        const monoBuffer = audioContext.createBuffer(1, audioBuffer.length, audioBuffer.sampleRate);
+        const monoData = monoBuffer.getChannelData(0);
+        
+        // Mix down to mono
+        for (let i = 0; i < audioBuffer.length; i++) {
+          let sum = 0;
+          for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+            sum += audioBuffer.getChannelData(channel)[i];
+          }
+          monoData[i] = sum / audioBuffer.numberOfChannels;
+        }
+        processedBuffer = monoBuffer;
+      }
+      
+      // For now, return original blob - full audio processing would require additional libraries
+      return blob;
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      return blob; // Return original on error
+    }
+  };
+
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    // Check file size
+    if (file.size > MAX_FILE_SIZE) {
+      return { valid: false, error: `File size must be less than 25MB. Current size: ${(file.size / (1024 * 1024)).toFixed(1)}MB` };
+    }
+
+    // Check file type
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    const allAllowedTypes = [...ALLOWED_TYPES.openai, ...ALLOWED_TYPES.huggingface];
+    
+    if (!allAllowedTypes.includes(fileExtension)) {
+      return { 
+        valid: false, 
+        error: `Unsupported file type. Allowed: ${allAllowedTypes.join(', ')}` 
+      };
+    }
+
+    return { valid: true };
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && (file.type.startsWith('audio/') || file.name.endsWith('.mp3') || file.name.endsWith('.wav'))) {
-      onRecordingComplete(file, 0); // Duration will be calculated later
+    setUploadError(null);
+    
+    if (!file) return;
+
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setUploadError(validation.error!);
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      
+      // Get audio duration
+      const audio = document.createElement('audio');
+      const audioUrl = URL.createObjectURL(file);
+      audio.src = audioUrl;
+      
+      await new Promise((resolve, reject) => {
+        audio.onloadedmetadata = resolve;
+        audio.onerror = reject;
+      });
+      
+      const duration = Math.floor(audio.duration);
+      URL.revokeObjectURL(audioUrl);
+      
+      if (duration > MAX_DURATION) {
+        setUploadError(`Recording duration must be less than 25 minutes. Current duration: ${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`);
+        return;
+      }
+      
+      const processedBlob = await processAudioBlob(file);
+      onRecordingComplete(processedBlob, duration);
+      
+      // Clear the input
+      event.target.value = '';
+    } catch (error) {
+      console.error('Error processing uploaded file:', error);
+      setUploadError('Failed to process audio file. Please try a different file.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -133,12 +237,13 @@ export const RecordingInterface = ({ onRecordingComplete, maxDuration }: Recordi
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
             <input
               type="file"
-              accept="audio/*,.mp3,.wav"
+              accept=".mp3,.wav,.flac,.mp4,.mpeg,.mpga,.m4a,.webm"
               onChange={handleFileUpload}
               className="hidden"
               id="audio-upload"
+              disabled={isProcessing}
             />
-            <label htmlFor="audio-upload" className="cursor-pointer">
+            <label htmlFor="audio-upload" className={cn("cursor-pointer", isProcessing && "pointer-events-none opacity-50")}>
               <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
               <p className="text-lg font-medium mb-2">Drop audio file here</p>
               <p className="text-sm text-muted-foreground mb-4">
@@ -149,9 +254,18 @@ export const RecordingInterface = ({ onRecordingComplete, maxDuration }: Recordi
               </Button>
             </label>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            Supports MP3, WAV, and other audio formats
-          </p>
+          
+          {uploadError && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTriangle className="w-4 h-4" />
+              <AlertDescription>{uploadError}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="text-xs text-muted-foreground mt-2 space-y-1">
+            <p><strong>Supported formats:</strong> MP3, WAV, FLAC, MP4, MPEG, MPGA, M4A, WebM</p>
+            <p><strong>Limits:</strong> Max 25MB, Max 25 minutes</p>
+          </div>
         </CardContent>
       </Card>
     </div>
