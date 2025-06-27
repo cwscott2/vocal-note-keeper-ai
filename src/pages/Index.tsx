@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { RecordingCard } from '@/components/RecordingCard';
 import { useRecordings } from '@/hooks/useRecordings';
@@ -302,8 +303,7 @@ export default function Index() {
       <RecordingInterface 
         isOpen={showRecordingInterface}
         onClose={() => setShowRecordingInterface(false)}
-        onRecordingComplete={handleRecordingComplete} 
-        maxDuration={1500}
+        onRecordingComplete={handleRecordingComplete}
       />
     </div>
   );
