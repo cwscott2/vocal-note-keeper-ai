@@ -1,7 +1,8 @@
 
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Settings as SettingsIcon, WifiOff, Wifi, Download, ArrowLeft } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Settings as SettingsIcon, WifiOff, Wifi, Download, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface AppHeaderProps {
@@ -63,30 +64,43 @@ export const AppHeader = ({
                 Back
               </Button>
             )}
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={handleLogoClick}>
-              <div className="flex items-center space-x-2">
-                <Mic className="w-8 h-8 text-primary" />
-                <div className="flex flex-col">
-                  <h1 className="text-2xl font-bold hover:text-primary/80 transition-colors">AI Note Taker</h1>
-                  <span className="text-xs text-muted-foreground -mt-1">by Outskill</span>
-                </div>
+            <div className="flex items-center space-x-2 cursor-pointer group" onClick={handleLogoClick}>
+              <div className="flex flex-col">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent group-hover:bg-gradient-to-r group-hover:from-purple-400 group-hover:via-pink-400 group-hover:to-blue-400 transition-all duration-300 ease-in-out bg-size-200 bg-pos-0 group-hover:bg-pos-100">
+                  AI Note Taker
+                </h1>
+                <span className="text-xs text-muted-foreground -mt-1">by Outskill</span>
               </div>
-              {!isOnline && <WifiOff className="w-5 h-5 text-muted-foreground" />}
-              {isOnline && <Wifi className="w-5 h-5 text-green-500" />}
             </div>
           </div>
           
           {showActions && (
             <div className="flex items-center space-x-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-2">
+                      {isOnline ? (
+                        <Wifi className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <WifiOff className="w-5 h-5 text-red-500" />
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{isOnline ? 'You are connected to the Internet' : 'You are not connected to the Internet'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
               {onOpenSettings && (
-                <Button variant="outline" size="sm" onClick={onOpenSettings}>
+                <Button variant="outline" size="default" onClick={onOpenSettings} className="h-10">
                   <SettingsIcon className="w-4 h-4 mr-2" />
                   Settings
                 </Button>
               )}
               {onOpenRecording && (
-                <Button onClick={onOpenRecording}>
-                  <Mic className="w-4 h-4 mr-2" />
+                <Button onClick={onOpenRecording} className="h-10">
                   New Recording
                 </Button>
               )}

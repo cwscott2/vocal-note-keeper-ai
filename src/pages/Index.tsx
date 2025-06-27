@@ -555,10 +555,29 @@ const Index = () => {
       {/* Floating Action Button */}
       <Button
         size="lg"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
+        className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 hover:from-purple-500 hover:via-pink-500 hover:to-blue-500 animate-gradient-shift hover:animate-gradient-shift-fast transition-all duration-300 border-0"
         onClick={() => setShowRecordingSheet(true)}
+        style={{
+          backgroundSize: '200% 200%'
+        }}
       >
-        <Mic className="w-6 h-6" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-white"
+        >
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" x2="12" y1="19" y2="22"/>
+          <line x1="8" x2="16" y1="22" y2="22"/>
+        </svg>
       </Button>
 
       {/* Recording Sheet - Left Side */}

@@ -207,8 +207,8 @@ ${recording.summaryMD || 'No summary available'}
 
   return (
     <Sheet open={!!recording} onOpenChange={onClose}>
-      <SheetContent className="w-[600px] sm:max-w-[600px]">
-        <SheetHeader className="space-y-4">
+      <SheetContent className="w-[600px] sm:max-w-[600px] flex flex-col">
+        <SheetHeader className="space-y-4 flex-shrink-0">
           <div className="flex items-start justify-between">
             <div className="flex-1 mr-4">
               {isEditing ? (
@@ -324,7 +324,7 @@ ${recording.summaryMD || 'No summary available'}
           )}
         </SheetHeader>
 
-        <Separator className="my-6" />
+        <Separator className="my-6 flex-shrink-0" />
 
         <ScrollArea className="flex-1 -mx-6 px-6">
           <div className="space-y-6">
@@ -335,15 +335,17 @@ ${recording.summaryMD || 'No summary available'}
                   <Textarea
                     value={editedSummary}
                     onChange={(e) => setEditedSummary(e.target.value)}
-                    className="min-h-[100px]"
+                    className="min-h-[100px] max-h-[300px] resize-none"
                     placeholder="Summary content"
                   />
                 ) : (
-                  <div className="prose prose-sm max-w-none">
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {recording.summaryMD}
-                    </p>
-                  </div>
+                  <ScrollArea className="max-h-[300px] w-full rounded-md border p-4">
+                    <div className="prose prose-sm max-w-none">
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {recording.summaryMD}
+                      </p>
+                    </div>
+                  </ScrollArea>
                 )}
               </div>
             )}
@@ -355,15 +357,17 @@ ${recording.summaryMD || 'No summary available'}
                   <Textarea
                     value={editedTranscript}
                     onChange={(e) => setEditedTranscript(e.target.value)}
-                    className="min-h-[200px]"
+                    className="min-h-[200px] max-h-[400px] resize-none"
                     placeholder="Transcript content"
                   />
                 ) : (
-                  <div className="prose prose-sm max-w-none">
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {recording.transcriptMD}
-                    </p>
-                  </div>
+                  <ScrollArea className="max-h-[400px] w-full rounded-md border p-4">
+                    <div className="prose prose-sm max-w-none">
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {recording.transcriptMD}
+                      </p>
+                    </div>
+                  </ScrollArea>
                 )}
               </div>
             )}
