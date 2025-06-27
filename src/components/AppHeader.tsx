@@ -66,7 +66,23 @@ export const AppHeader = ({
             )}
             <div className="flex items-center space-x-2 cursor-pointer group" onClick={handleLogoClick}>
               <div className="flex flex-col">
-                <h1 className="text-2xl font-bold bg-gradient-to-br from-purple-600 via-pink-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                <h1 
+                  className="text-2xl font-bold bg-clip-text text-transparent"
+                  style={{
+                    backgroundColor: '#ff999c',
+                    backgroundImage: `
+                      radial-gradient(at 93% 45%, hsla(59,83%,76%,1) 0px, transparent 50%),
+                      radial-gradient(at 31% 51%, hsla(188,87%,63%,1) 0px, transparent 50%),
+                      radial-gradient(at 45% 6%, hsla(165,91%,75%,1) 0px, transparent 50%),
+                      radial-gradient(at 60% 79%, hsla(90,90%,78%,1) 0px, transparent 50%),
+                      radial-gradient(at 56% 2%, hsla(164,93%,68%,1) 0px, transparent 50%),
+                      radial-gradient(at 36% 99%, hsla(294,76%,60%,1) 0px, transparent 50%),
+                      radial-gradient(at 8% 59%, hsla(307,89%,78%,1) 0px, transparent 50%)
+                    `,
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text'
+                  }}
+                >
                   AI Note Taker
                 </h1>
                 <span className="text-xs text-muted-foreground -mt-1">by Outskill</span>

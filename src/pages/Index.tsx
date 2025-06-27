@@ -5,13 +5,13 @@ import { useRecordings } from '@/hooks/useRecordings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon, Mic } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AppHeader } from '@/components/AppHeader';
 import { SidePanelSheet } from '@/components/SidePanelSheet';
+import { RecordingInterface } from '@/components/RecordingInterface';
 import { Recording } from '@/lib/database';
 import { usePWA } from '@/hooks/usePWA';
 import { useNavigate } from 'react-router-dom';
@@ -117,12 +117,12 @@ export default function Index() {
       />
 
       <div className="container mx-auto px-4 py-8">
-        {/* Filters Section */}
+        {/* Recordings Section */}
         <div className="mb-6 space-y-4">
-          <h2 className="text-lg font-semibold">Filters</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <h2 className="text-lg font-semibold">Recordings</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             {/* Search */}
-            <div>
+            <div className="md:col-span-2">
               <Label htmlFor="search">Search</Label>
               <Input
                 type="search"
@@ -134,20 +134,20 @@ export default function Index() {
             </div>
 
             {/* Date Range */}
-            <div className="space-y-2">
+            <div>
               <Label>Date Range</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
-                        "justify-start text-left font-normal flex-1",
+                        "justify-start text-left font-normal flex-1 text-xs",
                         !dateRange[0] && "text-muted-foreground"
                       )}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange[0] ? format(dateRange[0], "PPP") : <span>Start date</span>}
+                      <CalendarIcon className="mr-1 h-3 w-3" />
+                      {dateRange[0] ? format(dateRange[0], "MMM dd") : <span>Start</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -166,12 +166,12 @@ export default function Index() {
                     <Button
                       variant="outline"
                       className={cn(
-                        "justify-start text-left font-normal flex-1",
+                        "justify-start text-left font-normal flex-1 text-xs",
                         !dateRange[1] && "text-muted-foreground"
                       )}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange[1] ? format(dateRange[1], "PPP") : <span>End date</span>}
+                      <CalendarIcon className="mr-1 h-3 w-3" />
+                      {dateRange[1] ? format(dateRange[1], "MMM dd") : <span>End</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -187,16 +187,16 @@ export default function Index() {
               </div>
             </div>
 
-            {/* Show Only Favorites */}
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="favorites"
-                checked={showOnlyFavorites}
-                onCheckedChange={setShowOnlyFavorites}
-              />
-              <Label htmlFor="favorites">
-                Show Only Favorites
-              </Label>
+            {/* Show Only Favorites as Button */}
+            <div>
+              <Label>&nbsp;</Label>
+              <Button
+                variant={showOnlyFavorites ? "default" : "outline"}
+                onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
+                className="w-full"
+              >
+                {showOnlyFavorites ? 'Show All' : 'Favorites Only'}
+              </Button>
             </div>
           </div>
         </div>
@@ -259,10 +259,22 @@ export default function Index() {
           </div>
         </div>
 
-        {/* Floating Action Button */}
+        {/* Floating Action Button with Mesh Gradient */}
         <button
           onClick={onOpenRecording}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-shadow duration-300 flex items-center justify-center bg-gradient-to-br from-purple-600 via-pink-600 via-blue-600 to-indigo-600 group"
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-shadow duration-300 flex items-center justify-center group"
+          style={{
+            backgroundColor: '#ff999c',
+            backgroundImage: `
+              radial-gradient(at 93% 45%, hsla(59,83%,76%,1) 0px, transparent 50%),
+              radial-gradient(at 31% 51%, hsla(188,87%,63%,1) 0px, transparent 50%),
+              radial-gradient(at 45% 6%, hsla(165,91%,75%,1) 0px, transparent 50%),
+              radial-gradient(at 60% 79%, hsla(90,90%,78%,1) 0px, transparent 50%),
+              radial-gradient(at 56% 2%, hsla(164,93%,68%,1) 0px, transparent 50%),
+              radial-gradient(at 36% 99%, hsla(294,76%,60%,1) 0px, transparent 50%),
+              radial-gradient(at 8% 59%, hsla(307,89%,78%,1) 0px, transparent 50%)
+            `
+          }}
           aria-label="Start new recording"
         >
           <Mic className="w-6 h-6 text-white stroke-[1.25] group-hover:scale-110 transition-transform duration-200" />
@@ -281,18 +293,7 @@ export default function Index() {
 
       {/* Recording Interface */}
       {showRecordingInterface && (
-        <div className="fixed inset-0 bg-background z-50">
-          <div className="h-full flex flex-col">
-            <div className="border-b p-4">
-              <Button onClick={() => setShowRecordingInterface(false)} variant="outline">
-                Close Recording
-              </Button>
-            </div>
-            <div className="flex-1 flex items-center justify-center">
-              <p>Recording Interface would go here</p>
-            </div>
-          </div>
-        </div>
+        <RecordingInterface onClose={() => setShowRecordingInterface(false)} />
       )}
     </div>
   );
