@@ -1,4 +1,3 @@
-
 import Dexie, { Table } from 'dexie';
 
 export interface Recording {
@@ -30,8 +29,8 @@ export interface Settings {
   saveRecordings?: boolean;
   summaryProvider: 'none' | 'huggingface' | 'openai' | 'ollama' | 'lmstudio';
   summaryModel?: string;
-  ollamaUrl?: string;
-  lmstudioUrl?: string;
+  ollamaServerUrl?: string;
+  lmstudioServerUrl?: string;
 }
 
 export interface ModelInfo {
