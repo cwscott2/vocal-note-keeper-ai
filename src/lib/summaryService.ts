@@ -9,7 +9,7 @@ export interface SummaryResult {
 
 export const SUMMARY_PROVIDERS = [
   { name: 'none', displayName: 'No Summary', requiresApiKey: false },
-  { name: 'openai', displayName: 'OpenAI', requiresApiKey: true },
+  { name: 'openai', displayName: 'OpenAI GPT', requiresApiKey: true },
   { name: 'lmstudio', displayName: 'LM Studio (Local)', requiresApiKey: false }
 ];
 
@@ -43,8 +43,12 @@ const generateOpenAISummary = async (transcript: string, settings: Settings): Pr
   });
 
   const response = await openai.chat.completions.create({
-    model: settings.summaryModel || 'gpt-4.1-nano',
+    model: settings.summaryModel || 'gpt-4o-mini',
     messages: [
+      {
+        role: 'system',
+        content: 'You are a helpful summary assistant'
+      },
       {
         role: 'user',
         content: `You are a helpful summary assistant, summaries the following meeting transcript into bullets for "summary", and using summary decide on a "title" (include pun if possible, max 50 characters ). You must respond in json! Transcript: ${transcript} \n You must respond in JSON with summary and title key's`
@@ -55,17 +59,15 @@ const generateOpenAISummary = async (transcript: string, settings: Settings): Pr
     response_format: {
       type: "json_schema",
       json_schema: {
-        name: "summary_response",
+        name: "summary",
         schema: {
           type: "object",
           properties: {
             title: {
-              type: "string",
-              description: "A concise title for the recording (max 50 characters)"
+              type: "string"
             },
             summary: {
-              type: "string",
-              description: "A bullet-point summary in markdown format"
+              type: "string"
             }
           },
           required: ["title", "summary"]
@@ -103,6 +105,10 @@ const generateLMStudioSummary = async (transcript: string, settings: Settings): 
       model: settings.summaryModel,
       messages: [
         {
+          role: 'system',
+          content: 'You are a helpful summary assistant'
+        },
+        {
           role: 'user',
           content: `You are a helpful summary assistant, summaries the following meeting transcript into bullets for "summary", and using summary decide on a "title" (include pun if possible, max 50 characters ). You must respond in json! Transcript: ${transcript} \n You must respond in JSON with summary and title key's`
         }
@@ -112,17 +118,15 @@ const generateLMStudioSummary = async (transcript: string, settings: Settings): 
       response_format: {
         type: "json_schema",
         json_schema: {
-          name: "summary_response",
+          name: "summary",
           schema: {
             type: "object",
             properties: {
               title: {
-                type: "string",
-                description: "A concise title for the recording (max 50 characters)"
+                type: "string"
               },
               summary: {
-                type: "string",
-                description: "A bullet-point summary in markdown format"
+                type: "string"
               }
             },
             required: ["title", "summary"]

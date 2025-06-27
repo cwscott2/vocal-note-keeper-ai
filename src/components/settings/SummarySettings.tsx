@@ -52,7 +52,7 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
           <div>
             <Label>Model</Label>
             <Select
-              value={settings?.summaryModel || 'gpt-4.1-nano'}
+              value={settings?.summaryModel || 'gpt-4o-mini'}
               onValueChange={(value) => onUpdateSettings({ summaryModel: value })}
             >
               <SelectTrigger>
@@ -71,6 +71,15 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
 
       {settings?.summaryProvider === 'lmstudio' && (
         <>
+          <div>
+            <Label htmlFor="lmstudio-server-url">Server URL & Port</Label>
+            <Input
+              id="lmstudio-server-url"
+              placeholder="http://192.168.0.11:1234"
+              value={settings?.lmstudioServerUrl || ''}
+              onChange={(e) => onUpdateSettings({ lmstudioServerUrl: e.target.value })}
+            />
+          </div>
           <div>
             <Label htmlFor="lmstudio-model">Model</Label>
             <Input
