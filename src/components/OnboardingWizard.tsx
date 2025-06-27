@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, AlertCircle, Download, Folder, HardDrive, ExternalLink, Copy, CreditCard, Key, Settings, Plus, User } from 'lucide-react';
+import { CheckCircle, AlertCircle, Download, Folder, HardDrive, ExternalLink, Copy, CreditCard, Key, Settings as SettingsIcon, Plus, User } from 'lucide-react';
 import { canUseWhisperWeb, TRANSCRIPTION_PROVIDERS } from '@/lib/transcription';
 import { db, Settings } from '@/lib/database';
 import { toast } from '@/hooks/use-toast';
@@ -112,7 +112,7 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
 
   const completeOnboarding = async () => {
     try {
-      const settings: Omit<Settings, 'id'> = {
+      const settingsData: Partial<Settings> = {
         selectedProvider,
         whisperModels: selectedProvider === 'whisper-web' ? ['tiny'] : [],
         openaiApiKey: apiKeys.openai || undefined,
@@ -126,7 +126,7 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
       };
 
       await db.settings.clear();
-      await db.settings.add(settings);
+      await db.settings.add(settingsData as Settings);
       
       if (!showBackButton) {
         localStorage.setItem('onboarding-completed', 'true');
@@ -179,7 +179,7 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
 
         <div className="flex items-start gap-2">
           <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">3</span>
-          <p>Click <Settings className="w-3 h-3 inline mx-1" /> Settings icon in the platform</p>
+          <p>Click <SettingsIcon className="w-3 h-3 inline mx-1" /> Settings icon in the platform</p>
         </div>
 
         <div className="flex items-start gap-2">
