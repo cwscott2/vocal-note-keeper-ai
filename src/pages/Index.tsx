@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { RecordingCard } from '@/components/RecordingCard';
 import { useRecordings } from '@/hooks/useRecordings';
@@ -103,9 +102,12 @@ export default function Index() {
     toggleFavorite(recording);
   };
 
-  const handleRecordingComplete = (audioBlob: Blob, duration: number) => {
+  const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
     console.log('Recording completed:', audioBlob, duration);
     setShowRecordingInterface(false);
+    
+    // Refresh recordings list to show the new recording
+    // The useRecordings hook will automatically reload when the recordings change
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);

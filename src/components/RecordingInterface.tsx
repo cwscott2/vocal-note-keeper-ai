@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,12 +8,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Mic, MicOff, Square, Play, Pause, Upload, AlertTriangle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { db, Settings } from '@/lib/database';
 
 interface RecordingInterfaceProps {
   isOpen: boolean;
   onClose: () => void;
   onRecordingComplete: (audioBlob: Blob, duration: number) => void;
-  maxDuration: number;
 }
 
 const ALLOWED_TYPES = {
@@ -25,10 +24,30 @@ const ALLOWED_TYPES = {
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 const MAX_DURATION = 25 * 60; // 25 minutes
 
-export const RecordingInterface = ({ isOpen, onClose, onRecordingComplete, maxDuration }: RecordingInterfaceProps) => {
+export const RecordingInterface = ({ isOpen, onClose, onRecordingComplete }: RecordingInterfaceProps) => {
   const { state, startRecording, stopRecording, pauseRecording, resumeRecording } = useAudioRecorder();
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const allSettings = await db.settings.toArray();
+        if (allSettings.length > 0) {
+          setSettings(allSettings[0]);
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    };
+    
+    if (isOpen) {
+      loadSettings();
+    }
+  }, [isOpen]);
+
+  const maxDuration = settings?.maxDuration || 1800; // Default to 30 minutes if no settings
 
   const handleStartRecording = async () => {
     await startRecording();
@@ -39,8 +58,38 @@ export const RecordingInterface = ({ isOpen, onClose, onRecordingComplete, maxDu
     const audioBlob = await stopRecording();
     if (audioBlob) {
       const processedBlob = await processAudioBlob(audioBlob);
-      onRecordingComplete(processedBlob, state.duration);
-      onClose();
+      
+      // Save recording to database and start processing
+      try {
+        const audioBlobHandle = `audio_${Date.now()}`;
+        await db.audioBlobs.put({ id: audioBlobHandle, blob: processedBlob });
+        
+        const recording = await db.recordings.add({
+          title: `Recording ${new Date().toLocaleString()}`,
+          createdAt: new Date(),
+          duration: state.duration,
+          provider: settings?.selectedProvider || 'openai',
+          language: settings?.language || 'en',
+          audioBlobHandle,
+          processingStep: 'transcribing',
+          processingProgress: 0
+        });
+
+        onRecordingComplete(processedBlob, state.duration);
+        onClose();
+        
+        toast({
+          title: "Recording saved",
+          description: "Processing will begin shortly"
+        });
+      } catch (error) {
+        console.error('Error saving recording:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save recording",
+          variant: "destructive"
+        });
+      }
     }
     setIsProcessing(false);
   };
@@ -131,8 +180,38 @@ export const RecordingInterface = ({ isOpen, onClose, onRecordingComplete, maxDu
       }
       
       const processedBlob = await processAudioBlob(file);
-      onRecordingComplete(processedBlob, duration);
-      onClose();
+      
+      // Save uploaded file to database and start processing
+      try {
+        const audioBlobHandle = `audio_${Date.now()}`;
+        await db.audioBlobs.put({ id: audioBlobHandle, blob: processedBlob });
+        
+        const recording = await db.recordings.add({
+          title: `Upload ${new Date().toLocaleString()}`,
+          createdAt: new Date(),
+          duration,
+          provider: settings?.selectedProvider || 'openai',
+          language: settings?.language || 'en',
+          audioBlobHandle,
+          processingStep: 'transcribing',
+          processingProgress: 0
+        });
+
+        onRecordingComplete(processedBlob, duration);
+        onClose();
+        
+        toast({
+          title: "File uploaded",
+          description: "Processing will begin shortly"
+        });
+      } catch (error) {
+        console.error('Error saving uploaded file:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save uploaded file",
+          variant: "destructive"
+        });
+      }
       
       // Clear the input
       event.target.value = '';
