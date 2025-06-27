@@ -1,98 +1,164 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
+import { Recording } from '@/lib/database';
 import { RecordingCard } from '@/components/RecordingCard';
 import { RecordingInterface } from '@/components/RecordingInterface';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Search, Plus, Loader2, Mic } from 'lucide-react';
-import { Recording, db, initializeDefaultSettings } from '@/lib/database';
-import { transcribeWithOpenAI, transcribeWithHuggingFace, transcribeWithWhisperWeb } from '@/lib/transcription';
-import { generateSummary } from '@/lib/summaryService';
-import { usePWA } from '@/hooks/usePWA';
-import { toast } from '@/hooks/use-toast';
-import { RecordingDetailsPanel } from '@/components/RecordingDetailsPanel';
-import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { AppHeader } from '@/components/AppHeader';
-import { useNavigate } from 'react-router-dom';
+import { SidePanelSheet } from '@/components/SidePanelSheet';
+import { usePWA } from '@/hooks/usePWA';
+import { db, Settings } from '@/lib/database';
+import { toast } from '@/hooks/use-toast';
 
-const Index = () => {
+const Dashboard = () => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
-  const [filteredRecordings, setFilteredRecordings] = useState<Recording[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
-  const [isRecordingSheetOpen, setIsRecordingSheetOpen] = useState(false);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const { isOnline, installPrompt, isInstalled, installApp } = usePWA();
+
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loadRecordings = async () => {
-      await initializeDefaultSettings();
-      const allRecordings = await db.recordings.orderBy('createdAt').reverse().toArray();
-      setRecordings(allRecordings);
-      setFilteredRecordings(allRecordings);
-    };
+    loadSettings();
     loadRecordings();
   }, []);
 
-  useEffect(() => {
-    if (!searchTerm) {
-      setFilteredRecordings(recordings);
-    } else {
-      const filtered = recordings.filter(recording =>
-        recording.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        recording.transcriptMD?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        recording.summaryMD?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredRecordings(filtered);
+  const loadSettings = async () => {
+    try {
+      const allSettings = await db.settings.toArray();
+      if (allSettings.length > 0) {
+        setSettings(allSettings[0]);
+      } else {
+        navigate('/settings');
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load settings",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [searchTerm, recordings]);
+  };
+
+  const loadRecordings = async () => {
+    try {
+      const allRecordings = await db.recordings.orderBy('createdAt').reverse().toArray();
+      setRecordings(allRecordings);
+    } catch (error) {
+      console.error('Error loading recordings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load recordings",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePlayRecording = (recording: Recording) => {
+    setSelectedRecording(recording);
+  };
 
   const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
+    console.log('Recording completed with duration:', duration);
+    
+    if (!settings) {
+      toast({
+        title: "Error",
+        description: "Settings not loaded",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsTranscribing(true);
     
     try {
-      const now = new Date();
-      const title = `Recording ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-      
-      const audioBlobId = `audio_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      await db.audioBlobs.put({ id: audioBlobId, blob: audioBlob });
-      
-      const newRecording: Recording = {
-        title,
-        createdAt: now,
-        duration: duration || 0,
-        provider: 'pending',
-        language: 'en',
-        audioBlobHandle: audioBlobId,
-        transcriptMD: '',
-        summaryMD: ''
+      // Create recording entry
+      const recording: Omit<Recording, 'id'> = {
+        title: 'Processing...',
+        createdAt: new Date(),
+        duration: duration, // Use the actual calculated duration
+        provider: 'processing',
+        language: settings.language,
+        audioBlobHandle: `recording_${Date.now()}`,
+        processingStep: 'transcribing',
+        processingProgress: 0
       };
-      
-      const recordingId = await db.recordings.add(newRecording);
-      const savedRecording = await db.recordings.get(recordingId);
-      
-      if (savedRecording) {
-        setRecordings(prev => [savedRecording, ...prev]);
-        toast({
-          title: "Recording saved",
-          description: "Starting transcription process..."
+
+      const recordingId = await db.recordings.add(recording);
+      console.log('Created recording with ID:', recordingId, 'duration:', duration);
+
+      // Store audio blob
+      if (settings.saveRecordings) {
+        await db.audioBlobs.put({
+          id: recording.audioBlobHandle,
+          blob: audioBlob
         });
-        
-        transcribeRecording(savedRecording, audioBlob);
       }
+
+      // Start transcription
+      const { transcribeAudio } = await import('@/lib/transcription');
       
-      setIsRecordingSheetOpen(false);
-    } catch (error) {
-      console.error('Error saving recording:', error);
+      console.log('Starting transcription for recording:', recordingId);
+      console.log('Current settings:', settings);
+      
+      const transcript = await transcribeAudio(audioBlob, settings);
+      console.log('Transcription completed:', transcript.length, 'characters');
+
+      // Update with transcript
+      await db.recordings.update(recordingId, {
+        title: transcript.slice(0, 50) + (transcript.length > 50 ? '...' : ''),
+        transcriptMD: transcript,
+        processingStep: 'summarizing',
+        processingProgress: 50
+      });
+
+      // Generate summary if configured
+      if (settings.summaryProvider && settings.summaryProvider !== 'none') {
+        try {
+          const { generateSummary } = await import('@/lib/summaryService');
+          const summaryResult = await generateSummary(transcript, settings);
+          
+          await db.recordings.update(recordingId, {
+            title: summaryResult.title,
+            summaryMD: summaryResult.summary,
+            provider: settings.selectedProvider,
+            processingStep: 'completed',
+            processingProgress: 100
+          });
+        } catch (summaryError) {
+          console.error('Summary generation failed:', summaryError);
+          await db.recordings.update(recordingId, {
+            provider: settings.selectedProvider,
+            processingStep: 'completed',
+            processingProgress: 100
+          });
+        }
+      } else {
+        await db.recordings.update(recordingId, {
+          provider: settings.selectedProvider,
+          processingStep: 'completed',
+          processingProgress: 100
+        });
+      }
+
+      loadRecordings();
+      
       toast({
-        title: "Error",
-        description: "Failed to save recording",
+        title: "Recording processed",
+        description: "Your recording has been transcribed successfully"
+      });
+
+    } catch (error) {
+      console.error('Error processing recording:', error);
+      toast({
+        title: "Processing failed",
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive"
       });
     } finally {
@@ -100,181 +166,21 @@ const Index = () => {
     }
   };
 
-  const transcribeRecording = async (recording: Recording, audioBlob: Blob) => {
-    try {
-      console.log('Starting transcription for recording:', recording.id);
-      await db.recordings.update(recording.id!, { provider: 'processing' });
-      setRecordings(prev => prev.map(r => 
-        r.id === recording.id ? { ...r, provider: 'processing' } : r
-      ));
-
-      const settings = await db.settings.toArray();
-      const currentSettings = settings[0];
-      console.log('Current settings:', currentSettings);
-      
-      let transcription = '';
-      let provider = '';
-
-      if (currentSettings?.selectedProvider === 'whisper-web') {
-        try {
-          transcription = await transcribeWithWhisperWeb(audioBlob, 'tiny');
-          provider = 'whisper-web';
-        } catch (error) {
-          console.error('Whisper Web transcription failed:', error);
-          throw error;
-        }
-      } else if (currentSettings?.selectedProvider === 'openai' && currentSettings.openaiApiKey) {
-        try {
-          transcription = await transcribeWithOpenAI(audioBlob, currentSettings.openaiApiKey);
-          provider = 'openai';
-        } catch (error) {
-          console.error('OpenAI transcription failed:', error);
-          throw error;
-        }
-      } else if (currentSettings?.selectedProvider === 'huggingface' && currentSettings.hfApiKey) {
-        try {
-          transcription = await transcribeWithHuggingFace(
-            audioBlob, 
-            currentSettings.hfApiKey, 
-            'openai/whisper-large-v3'
-          );
-          provider = 'huggingface';
-        } catch (error) {
-          console.error('Hugging Face transcription failed:', error);
-          throw error;
-        }
-      } else {
-        throw new Error('No valid transcription provider configured');
-      }
-
-      console.log('Transcription completed:', transcription.length, 'characters');
-
-      if (transcription) {
-        let summaryContent = '';
-        let updatedTitle = recording.title;
-        
-        // Generate summary if provider is configured
-        if (currentSettings?.summaryProvider && currentSettings.summaryProvider !== 'none') {
-          try {
-            console.log('Generating summary with provider:', currentSettings.summaryProvider);
-            const summaryResult = await generateSummary(transcription, currentSettings);
-            console.log('Summary generated:', summaryResult);
-            summaryContent = summaryResult.summary;
-            updatedTitle = summaryResult.title || recording.title;
-          } catch (error) {
-            console.error('Summary generation failed:', error);
-            summaryContent = '';
-          }
-        }
-
-        await db.recordings.update(recording.id!, {
-          title: updatedTitle,
-          transcriptMD: transcription,
-          summaryMD: summaryContent,
-          provider
-        });
-
-        setRecordings(prev => prev.map(r => 
-          r.id === recording.id 
-            ? { ...r, title: updatedTitle, transcriptMD: transcription, summaryMD: summaryContent, provider }
-            : r
-        ));
-
-        toast({
-          title: "Transcription complete",
-          description: `Successfully transcribed using ${provider}${summaryContent ? ' with summary' : ''}`
-        });
-      } else {
-        throw new Error('No transcription returned');
-      }
-    } catch (error) {
-      console.error('Transcription error:', error);
-      
-      await db.recordings.update(recording.id!, { provider: 'failed' });
-      setRecordings(prev => prev.map(r => 
-        r.id === recording.id ? { ...r, provider: 'failed' } : r
-      ));
-
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorPreview = errorMessage.split('\n').slice(0, 3).join('\n');
-      
-      toast({
-        title: "Transcription failed",
-        description: (
-          <div className="space-y-2">
-            <p>Please check your API keys and try again</p>
-            <code 
-              className="block p-2 bg-muted rounded cursor-pointer text-xs"
-              onClick={() => navigator.clipboard.writeText(errorMessage)}
-              title="Click to copy full error"
-            >
-              {errorPreview}
-              {errorMessage.length > errorPreview.length && '...'}
-            </code>
-          </div>
-        ),
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleRecordingClick = (recording: Recording) => {
-    setSelectedRecording(recording);
-    setIsDetailsOpen(true);
-  };
-
-  const handleRetryTranscription = (recording: Recording) => {
-    // Load audio blob and retry transcription
-    db.audioBlobs.get(recording.audioBlobHandle).then(audioData => {
-      if (audioData) {
-        transcribeRecording(recording, audioData.blob);
-      }
-    });
-  };
-
-  const handleSaveRecording = async (recording: Recording, updates: Partial<Recording>) => {
-    try {
-      await db.recordings.update(recording.id!, updates);
-      setRecordings(prev => prev.map(r => 
-        r.id === recording.id ? { ...r, ...updates } : r
-      ));
-      toast({
-        title: "Changes saved",
-        description: "Recording has been updated successfully"
-      });
-    } catch (error) {
-      console.error('Error saving changes:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save changes",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleDeleteRecording = async (recording: Recording) => {
-    if (window.confirm('Are you sure you want to delete this recording?')) {
-      try {
-        await db.recordings.delete(recording.id!);
-        await db.audioBlobs.delete(recording.audioBlobHandle);
-        setRecordings(prev => prev.filter(r => r.id !== recording.id));
-        toast({
-          title: "Recording deleted",
-          description: "Recording has been permanently removed"
-        });
-      } catch (error) {
-        console.error('Error deleting recording:', error);
-        toast({
-          title: "Error",
-          description: "Failed to delete recording",
-          variant: "destructive"
-        });
-      }
-    }
-  };
-
-  if (showOnboarding) {
-    return <OnboardingWizard onComplete={() => setShowOnboarding(false)} />;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader
+          isOnline={isOnline}
+          installPrompt={installPrompt}
+          isInstalled={isInstalled}
+          installApp={installApp}
+          showActions={false}
+        />
+        <div className="container mx-auto px-4 py-8">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -284,94 +190,33 @@ const Index = () => {
         installPrompt={installPrompt}
         isInstalled={isInstalled}
         installApp={installApp}
-        onOpenSettings={() => navigate('/settings')}
-        onOpenRecording={() => setIsRecordingSheetOpen(true)}
+        showActions={true}
       />
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <div className="relative max-w-lg">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search recordings..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+      <SidePanelSheet recording={selectedRecording} onClose={() => setSelectedRecording(null)} />
+
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-4">My Recordings</h1>
+
+        <RecordingInterface
+          onRecordingComplete={handleRecordingComplete}
+          maxDuration={settings?.maxDuration || 1800}
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8">
+          {recordings.map((recording) => (
+            <RecordingCard
+              key={recording.id}
+              recording={recording}
+              onPlay={handlePlayRecording}
+              onEdit={() => {}}
+              onDelete={() => {}}
             />
-          </div>
+          ))}
         </div>
-
-        {filteredRecordings.length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <Mic className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-xl font-semibold mb-2">No recordings yet</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchTerm ? 'No recordings match your search.' : 'Start by creating your first recording.'}
-              </p>
-              {!searchTerm && (
-                <Button onClick={() => setIsRecordingSheetOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Recording
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRecordings.map((recording) => (
-              <RecordingCard
-                key={recording.id}
-                recording={recording}
-                onPlay={handleRecordingClick}
-                onEdit={handleRecordingClick}
-                onDelete={handleDeleteRecording}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-
-      <RecordingDetailsPanel
-        recording={selectedRecording}
-        isOpen={isDetailsOpen}
-        onClose={() => setIsDetailsOpen(false)}
-        onDelete={handleDeleteRecording}
-        onRetry={handleRetryTranscription}
-        onSave={handleSaveRecording}
-      />
-
-      <Sheet open={isRecordingSheetOpen} onOpenChange={setIsRecordingSheetOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-2xl">
-          <SheetHeader>
-            <SheetTitle>Create New Recording</SheetTitle>
-          </SheetHeader>
-          <div className="mt-6">
-            {isTranscribing ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center space-y-4">
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto" />
-                  <p>Processing your recording...</p>
-                </div>
-              </div>
-            ) : (
-              <RecordingInterface
-                onRecordingComplete={handleRecordingComplete}
-                maxDuration={1800}
-              />
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      <Button
-        className="fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg"
-        onClick={() => setIsRecordingSheetOpen(true)}
-      >
-        <Mic className="w-6 h-6" />
-      </Button>
+      </div>
     </div>
   );
 };
 
-export default Index;
+export default Dashboard;

@@ -25,12 +25,14 @@ export const useAudioRecorder = () => {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const startTimeRef = useRef<number>(0);
-  const pausedTimeRef = useRef<number>(0);
+  const totalPausedTimeRef = useRef<number>(0);
+  const pauseStartTimeRef = useRef<number>(0);
 
   const updateTimer = useCallback(() => {
     setState(prevState => {
       if (!prevState.isPaused && prevState.isRecording) {
-        const elapsed = Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000);
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
         
         // Update audio level
         let audioLevel = 0;
@@ -84,7 +86,8 @@ export const useAudioRecorder = () => {
       mediaRecorder.start(1000);
 
       startTimeRef.current = Date.now();
-      pausedTimeRef.current = 0;
+      totalPausedTimeRef.current = 0;
+      pauseStartTimeRef.current = 0;
       setState(prev => ({ ...prev, isRecording: true, duration: 0 }));
 
       timerRef.current = setInterval(updateTimer, 100);
@@ -124,6 +127,9 @@ export const useAudioRecorder = () => {
           audioContextRef.current.close();
         }
 
+        // Calculate final duration
+        const finalDuration = Math.floor((Date.now() - startTimeRef.current - totalPausedTimeRef.current) / 1000);
+
         setState({
           isRecording: false,
           isPaused: false,
@@ -141,7 +147,7 @@ export const useAudioRecorder = () => {
   const pauseRecording = useCallback(() => {
     if (mediaRecorderRef.current && state.isRecording && !state.isPaused) {
       mediaRecorderRef.current.pause();
-      pausedTimeRef.current += Date.now() - startTimeRef.current - pausedTimeRef.current;
+      pauseStartTimeRef.current = Date.now();
       setState(prev => ({ ...prev, isPaused: true }));
     }
   }, [state.isRecording, state.isPaused]);
@@ -149,7 +155,9 @@ export const useAudioRecorder = () => {
   const resumeRecording = useCallback(() => {
     if (mediaRecorderRef.current && state.isPaused) {
       mediaRecorderRef.current.resume();
-      startTimeRef.current = Date.now();
+      // Add the time we were paused to total paused time
+      totalPausedTimeRef.current += Date.now() - pauseStartTimeRef.current;
+      pauseStartTimeRef.current = 0;
       setState(prev => ({ ...prev, isPaused: false }));
     }
   }, [state.isPaused]);

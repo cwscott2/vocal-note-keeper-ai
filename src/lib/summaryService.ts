@@ -1,4 +1,3 @@
-
 import { Settings } from './database';
 
 export interface SummaryResult {
@@ -180,46 +179,72 @@ const generateOllamaSummary = async (transcript: string, settings: Settings): Pr
 };
 
 const generateLMStudioSummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
-  const serverUrl = settings.lmstudioServerUrl || 'http://192.168.0.11:1234';
+  const serverUrl = settings.lmstudioServerUrl || 'http://localhost:1234';
   
   console.log('Making LM Studio API request to:', serverUrl);
-  const response = await fetch(`${serverUrl}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: settings.summaryModel || 'google/gemma-3-4b',
-      messages: [
-        {
-          role: 'user',
-          content: `Please analyze this transcript and provide a title and summary in JSON format with "title" and "summary" fields. The summary should be in bullet point format using markdown.\n\nTranscript: ${transcript}`
-        }
-      ],
-      response_format: { type: "json_object" }
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`LM Studio API error: ${response.status} ${response.statusText}\n${errorText}`);
-  }
-
-  const result = await response.json();
-  let parsed;
   
   try {
-    parsed = JSON.parse(result.choices[0].message.content);
-  } catch (error) {
+    const response = await fetch(`${serverUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: settings.summaryModel || 'local-model',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant that creates concise summaries. Always respond with valid JSON containing "title" and "summary" fields.'
+          },
+          {
+            role: 'user',
+            content: `Please analyze this transcript and provide a title and summary. Return your response as JSON with "title" and "summary" fields. The summary should be in bullet point format using markdown.\n\nTranscript: ${transcript}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+        stream: false
+    }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('LM Studio API error response:', errorText);
+      throw new Error(`LM Studio API error: ${response.status} ${response.statusText}. ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('LM Studio raw response:', result);
+    
+    if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+      throw new Error('Invalid response format from LM Studio');
+    }
+
     const content = result.choices[0].message.content;
+    console.log('LM Studio content:', content);
+    
+    let parsed;
+    try {
+      // Try to parse as JSON first
+      parsed = JSON.parse(content);
+    } catch (parseError) {
+      console.log('Failed to parse as JSON, treating as plain text');
+      // If JSON parsing fails, create a simple response
+      return {
+        title: 'LM Studio Summary',
+        summary: `# Summary\n\n${content}`
+      };
+    }
+    
     return {
-      title: 'LM Studio Summary',
-      summary: `# Summary\n\n${content}`
+      title: parsed.title || 'Generated Summary',
+      summary: parsed.summary || content
     };
+  } catch (error) {
+    console.error('LM Studio request failed:', error);
+    if (error instanceof Error) {
+      throw new Error(`LM Studio connection failed: ${error.message}. Make sure LM Studio is running on ${serverUrl} with a model loaded.`);
+    }
+    throw new Error('LM Studio connection failed. Make sure LM Studio is running with a model loaded.');
   }
-  
-  return {
-    title: parsed.title || 'Generated Summary',
-    summary: parsed.summary || parsed.content || result.choices[0].message.content
-  };
 };
