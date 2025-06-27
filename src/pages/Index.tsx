@@ -5,38 +5,28 @@ import { useRecordings } from '@/hooks/useRecordings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-import { Settings as SettingsIcon, Mic, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon, Mic } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { AppHeader } from '@/components/AppHeader';
 import { SidePanelSheet } from '@/components/SidePanelSheet';
 import { Recording } from '@/lib/database';
 import { usePWA } from '@/hooks/usePWA';
+import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export default function Index() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
-  const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState<boolean>(false);
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showRecordingInterface, setShowRecordingInterface] = useState(false);
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
+  const navigate = useNavigate();
   const { isOnline, installPrompt, isInstalled, installApp } = usePWA();
 
   const {
@@ -48,20 +38,17 @@ export default function Index() {
     setPage,
     pageSize,
     setPageSize,
-    sortOrder,
-    setSortOrder,
     favoriteRecording,
     deleteRecording,
   } = useRecordings({
     searchTerm: debouncedSearchTerm,
     startDate: dateRange[0]?.toISOString() || undefined,
     endDate: dateRange[1]?.toISOString() || undefined,
-    confidenceThreshold: confidenceThreshold / 100,
     showOnlyFavorites,
   });
 
   const onOpenRecording = () => {
-    window.location.href = '/record';
+    setShowRecordingInterface(true);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -70,11 +57,7 @@ export default function Index() {
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
-    setPage(1); // Reset to the first page when changing page size
-  };
-
-  const handleSortOrderChange = (newSortOrder: 'asc' | 'desc') => {
-    setSortOrder(newSortOrder);
+    setPage(1);
   };
 
   const toggleFavorite = useCallback(
@@ -109,12 +92,10 @@ export default function Index() {
   };
 
   const handleRetry = (recording: Recording) => {
-    // Handle retry logic here
     console.log('Retry recording:', recording);
   };
 
   const handleSave = (recording: Recording, updates: Partial<Recording>) => {
-    // Handle save logic here
     console.log('Save recording:', recording, updates);
   };
 
@@ -131,70 +112,94 @@ export default function Index() {
         installPrompt={installPrompt}
         isInstalled={isInstalled}
         installApp={installApp}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => navigate('/settings')}
         onOpenRecording={onOpenRecording}
       />
 
       <div className="container mx-auto px-4 py-8">
         {/* Filters Section */}
-        <Accordion type="single" collapsible className="mb-4">
-          <AccordionItem value="filters">
-            <AccordionTrigger>Filters</AccordionTrigger>
-            <AccordionContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Search */}
-                <div>
-                  <Label htmlFor="search">Search</Label>
-                  <Input
-                    type="search"
-                    id="search"
-                    placeholder="Search recordings..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
+        <div className="mb-6 space-y-4">
+          <h2 className="text-lg font-semibold">Filters</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Search */}
+            <div>
+              <Label htmlFor="search">Search</Label>
+              <Input
+                type="search"
+                id="search"
+                placeholder="Search recordings..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
 
-                {/* Date Range */}
-                <div>
-                  <Label>Date Range</Label>
-                  {/* Implement Date Range Picker here */}
-                  <Input
-                    type="text"
-                    placeholder="Date Range (Coming Soon)"
-                    disabled
-                  />
-                </div>
-
-                {/* Confidence Threshold */}
-                <div>
-                  <Label htmlFor="confidence">Confidence Threshold</Label>
-                  <Slider
-                    id="confidence"
-                    defaultValue={[confidenceThreshold]}
-                    max={100}
-                    step={1}
-                    onValueChange={(value) => setConfidenceThreshold(value[0])}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Show recordings with confidence above {confidenceThreshold}%
-                  </p>
-                </div>
-
-                {/* Show Only Favorites */}
-                <div className="md:col-span-3 flex items-center">
-                  <Switch
-                    id="favorites"
-                    checked={showOnlyFavorites}
-                    onCheckedChange={setShowOnlyFavorites}
-                  />
-                  <Label htmlFor="favorites" className="ml-2">
-                    Show Only Favorites
-                  </Label>
-                </div>
+            {/* Date Range */}
+            <div className="space-y-2">
+              <Label>Date Range</Label>
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal flex-1",
+                        !dateRange[0] && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange[0] ? format(dateRange[0], "PPP") : <span>Start date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateRange[0] || undefined}
+                      onSelect={(date) => setDateRange([date || null, dateRange[1]])}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "justify-start text-left font-normal flex-1",
+                        !dateRange[1] && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange[1] ? format(dateRange[1], "PPP") : <span>End date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateRange[1] || undefined}
+                      onSelect={(date) => setDateRange([dateRange[0], date || null])}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+            </div>
+
+            {/* Show Only Favorites */}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="favorites"
+                checked={showOnlyFavorites}
+                onCheckedChange={setShowOnlyFavorites}
+              />
+              <Label htmlFor="favorites">
+                Show Only Favorites
+              </Label>
+            </div>
+          </div>
+        </div>
 
         {/* Recordings Grid */}
         {isLoading ? (
@@ -233,14 +238,6 @@ export default function Index() {
               <option value="50">50</option>
             </select>
           </div>
-          <div>
-            <Button
-              onClick={() => handleSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
-              variant="outline"
-            >
-              Sort by Date ({sortOrder === 'asc' ? 'Ascending' : 'Descending'})
-            </Button>
-          </div>
           <div className="flex items-center space-x-2">
             <Button
               onClick={() => handlePageChange(page - 1)}
@@ -265,7 +262,7 @@ export default function Index() {
         {/* Floating Action Button */}
         <button
           onClick={onOpenRecording}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center bg-gradient-to-br from-purple-600 via-pink-600 via-blue-600 to-indigo-600 hover:animate-mesh-gradient-fast animate-mesh-gradient bg-size-400 group"
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-shadow duration-300 flex items-center justify-center bg-gradient-to-br from-purple-600 via-pink-600 via-blue-600 to-indigo-600 group"
           aria-label="Start new recording"
         >
           <Mic className="w-6 h-6 text-white stroke-[1.25] group-hover:scale-110 transition-transform duration-200" />
@@ -281,6 +278,22 @@ export default function Index() {
         onSave={handleSave}
         onToggleFavorite={handleToggleFavoriteFromSidePanel}
       />
+
+      {/* Recording Interface */}
+      {showRecordingInterface && (
+        <div className="fixed inset-0 bg-background z-50">
+          <div className="h-full flex flex-col">
+            <div className="border-b p-4">
+              <Button onClick={() => setShowRecordingInterface(false)} variant="outline">
+                Close Recording
+              </Button>
+            </div>
+            <div className="flex-1 flex items-center justify-center">
+              <p>Recording Interface would go here</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -223,19 +223,14 @@ ${recording.summaryMD || 'No summary available'}
               )}
             </div>
             
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onToggleFavorite(recording)}
-                className="p-2 hover:bg-muted rounded-sm transition-colors"
-              >
-                <Heart 
-                  className={`w-4 h-4 ${recording.isFavorite ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`}
-                />
-              </button>
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+            <button
+              onClick={() => onToggleFavorite(recording)}
+              className="p-2 hover:bg-muted rounded-sm transition-colors"
+            >
+              <Heart 
+                className={`w-4 h-4 ${recording.isFavorite ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`}
+              />
+            </button>
           </div>
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">

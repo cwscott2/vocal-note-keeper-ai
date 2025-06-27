@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 import Settings from "@/pages/Settings";
 import Index from "./pages/Index";
+import Record from "./pages/Record";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/record" element={<Record />} />
             <Route path="/settings" element={<Settings onLaunchWizard={() => setShowOnboarding(true)} />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
