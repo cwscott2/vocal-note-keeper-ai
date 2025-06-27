@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { RecordingCard } from '@/components/RecordingCard';
 import { useRecordings } from '@/hooks/useRecordings';
@@ -366,9 +365,10 @@ export default function Index() {
               value={pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
             >
-              <option value="10">10</option>
-              <option value="20">20</option>
+              <option value="15">15</option>
               <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="250">250</option>
             </select>
           </div>
           <div className="flex items-center space-x-2">
@@ -392,22 +392,10 @@ export default function Index() {
           </div>
         </div>
 
-        {/* Floating Action Button with Mesh Gradient */}
+        {/* Floating Action Button with New Gradient and Animation */}
         <button
           onClick={onOpenRecording}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-shadow duration-300 flex items-center justify-center group"
-          style={{
-            backgroundColor: '#ff999c',
-            backgroundImage: `
-              radial-gradient(at 93% 45%, hsla(59,83%,76%,1) 0px, transparent 50%),
-              radial-gradient(at 31% 51%, hsla(188,87%,63%,1) 0px, transparent 50%),
-              radial-gradient(at 45% 6%, hsla(165,91%,75%,1) 0px, transparent 50%),
-              radial-gradient(at 60% 79%, hsla(90,90%,78%,1) 0px, transparent 50%),
-              radial-gradient(at 56% 2%, hsla(164,93%,68%,1) 0px, transparent 50%),
-              radial-gradient(at 36% 99%, hsla(294,76%,60%,1) 0px, transparent 50%),
-              radial-gradient(at 8% 59%, hsla(307,89%,78%,1) 0px, transparent 50%)
-            `
-          }}
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center justify-center group animated-gradient-fab"
           aria-label="Start new recording"
         >
           <Mic className="w-6 h-6 text-white stroke-[1.25]" />

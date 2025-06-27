@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Recording, db } from '@/lib/database';
 
@@ -15,7 +16,7 @@ export const useRecordings = (params: UseRecordingsParams = {}) => {
   const [error, setError] = useState<Error | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15); // Changed default from 10 to 15
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const loadRecordings = async () => {

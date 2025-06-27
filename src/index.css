@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -100,4 +101,56 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Animated Gradient Styles */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-gradient-text {
+  background-color: #ff99ca;
+  background-image:
+    radial-gradient(at 1% 87%, hsla(221,78%,68%,1) 0px, transparent 50%),
+    radial-gradient(at 92% 22%, hsla(235,64%,52%,1) 0px, transparent 50%),
+    radial-gradient(at 69% 32%, hsla(341,90%,61%,1) 0px, transparent 50%),
+    radial-gradient(at 29% 17%, hsla(230,81%,71%,1) 0px, transparent 50%),
+    radial-gradient(at 96% 29%, hsla(142,90%,76%,1) 0px, transparent 50%),
+    radial-gradient(at 20% 14%, hsla(314,35%,54%,1) 0px, transparent 50%),
+    radial-gradient(at 47% 60%, hsla(277,53%,42%,1) 0px, transparent 50%);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: gradientShift 8s ease-in-out infinite;
+}
+
+.animated-gradient-text:hover {
+  animation: gradientShift 3s ease-in-out infinite;
+}
+
+.animated-gradient-fab {
+  background-color: #ff99ca;
+  background-image:
+    radial-gradient(at 1% 87%, hsla(221,78%,68%,1) 0px, transparent 50%),
+    radial-gradient(at 92% 22%, hsla(235,64%,52%,1) 0px, transparent 50%),
+    radial-gradient(at 69% 32%, hsla(341,90%,61%,1) 0px, transparent 50%),
+    radial-gradient(at 29% 17%, hsla(230,81%,71%,1) 0px, transparent 50%),
+    radial-gradient(at 96% 29%, hsla(142,90%,76%,1) 0px, transparent 50%),
+    radial-gradient(at 20% 14%, hsla(314,35%,54%,1) 0px, transparent 50%),
+    radial-gradient(at 47% 60%, hsla(277,53%,42%,1) 0px, transparent 50%);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease-in-out infinite;
+}
+
+.animated-gradient-fab:hover {
+  animation: gradientShift 3s ease-in-out infinite;
+  box-shadow: 0 20px 25px -5px rgba(255, 153, 202, 0.4), 0 10px 10px -5px rgba(255, 153, 202, 0.2);
 }
