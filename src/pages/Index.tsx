@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { RecordingCard } from '@/components/RecordingCard';
 import { RecordingInterface } from '@/components/RecordingInterface';
@@ -12,7 +11,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Mic, Settings, Search } from 'lucide-react';
+import { Mic, Search } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 const Index = () => {
@@ -80,6 +79,8 @@ const Index = () => {
         throw new Error('Settings not loaded');
       }
 
+      console.log('Processing new recording with settings:', settings);
+
       // Store the audio blob
       const audioBlobHandle = `audio_${Date.now()}`;
       await db.audioBlobs.add({ id: audioBlobHandle, blob: audioBlob });
@@ -98,27 +99,45 @@ const Index = () => {
       const recordingId = await db.recordings.add(recording);
       loadRecordings();
 
-      // Process transcription
+      // Process transcription FIRST
       try {
+        console.log('Starting transcription with provider:', settings.selectedProvider);
         const transcript = await transcribeAudio(audioBlob, settings);
+        console.log('Transcription completed:', transcript);
         
+        // Update with transcription
+        await db.recordings.update(recordingId, {
+          transcriptMD: transcript,
+          provider: settings.selectedProvider,
+          processingStep: 'transcribed'
+        });
+        
+        loadRecordings();
+
+        // Now process summary if configured
         let summaryMD = '';
         let title = recording.title;
         
         if (settings.summaryProvider && settings.summaryProvider !== 'none') {
+          console.log('Starting summary generation with provider:', settings.summaryProvider);
           await db.recordings.update(recordingId, { processingStep: 'summarizing' });
           loadRecordings();
           
-          const summaryResult = await generateSummary(transcript, settings);
-          summaryMD = summaryResult.summary;
-          title = summaryResult.title;
+          try {
+            const summaryResult = await generateSummary(transcript, settings);
+            summaryMD = summaryResult.summary;
+            title = summaryResult.title;
+            console.log('Summary completed:', summaryResult);
+          } catch (summaryError) {
+            console.error('Summary failed but transcription succeeded:', summaryError);
+            // Keep transcription even if summary fails
+          }
         }
 
+        // Final update with all data
         await db.recordings.update(recordingId, {
-          transcriptMD: transcript,
           summaryMD,
           title,
-          provider: settings.selectedProvider,
           processingStep: 'completed'
         });
 
@@ -127,14 +146,14 @@ const Index = () => {
           description: "Your recording has been transcribed successfully"
         });
       } catch (error) {
-        console.error('Processing failed:', error);
+        console.error('Transcription failed:', error);
         await db.recordings.update(recordingId, { 
           provider: 'failed',
           processingStep: 'failed'
         });
         
         toast({
-          title: "Processing failed",
+          title: "Transcription failed",
           description: error instanceof Error ? error.message : 'Unknown error occurred',
           variant: "destructive"
         });
@@ -164,6 +183,8 @@ const Index = () => {
         throw new Error('Audio data not found');
       }
 
+      console.log('Retrying transcription with settings:', currentSettings[0]);
+
       await db.recordings.update(recording.id!, { 
         provider: 'processing',
         processingStep: 'transcribing'
@@ -172,25 +193,43 @@ const Index = () => {
       loadRecordings();
 
       try {
+        console.log('Starting retry transcription with provider:', currentSettings[0].selectedProvider);
         const transcript = await transcribeAudio(audioData.blob, currentSettings[0]);
+        console.log('Retry transcription completed:', transcript);
         
+        // Update with transcription
+        await db.recordings.update(recording.id!, {
+          transcriptMD: transcript,
+          provider: currentSettings[0].selectedProvider,
+          processingStep: 'transcribed'
+        });
+        
+        loadRecordings();
+
+        // Process summary if configured
         let summaryMD = '';
         let title = recording.title;
         
         if (currentSettings[0].summaryProvider && currentSettings[0].summaryProvider !== 'none') {
+          console.log('Starting retry summary generation with provider:', currentSettings[0].summaryProvider);
           await db.recordings.update(recording.id!, { processingStep: 'summarizing' });
           loadRecordings();
           
-          const summaryResult = await generateSummary(transcript, currentSettings[0]);
-          summaryMD = summaryResult.summary;
-          title = summaryResult.title;
+          try {
+            const summaryResult = await generateSummary(transcript, currentSettings[0]);
+            summaryMD = summaryResult.summary;
+            title = summaryResult.title;
+            console.log('Retry summary completed:', summaryResult);
+          } catch (summaryError) {
+            console.error('Summary failed but transcription succeeded:', summaryError);
+            // Keep transcription even if summary fails
+          }
         }
 
+        // Final update
         await db.recordings.update(recording.id!, {
-          transcriptMD: transcript,
           summaryMD,
           title,
-          provider: currentSettings[0].selectedProvider,
           processingStep: 'completed'
         });
 
@@ -199,7 +238,7 @@ const Index = () => {
           description: "Recording has been processed successfully"
         });
       } catch (error) {
-        console.error('Transcription failed:', error);
+        console.error('Retry transcription failed:', error);
         await db.recordings.update(recording.id!, { 
           provider: 'failed',
           processingStep: 'failed'
@@ -279,20 +318,6 @@ const Index = () => {
       
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center py-12">
-            <Mic className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h1 className="text-3xl font-bold mb-2">AI Note Taker</h1>
-            <p className="text-muted-foreground mb-6">Record, transcribe, and summarize your thoughts with AI</p>
-            <Button 
-              size="lg" 
-              onClick={() => setShowRecordingSheet(true)}
-              className="mb-8"
-            >
-              <Mic className="w-5 h-5 mr-2" />
-              Start Recording
-            </Button>
-          </div>
-
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold">Recent Recordings</h2>
