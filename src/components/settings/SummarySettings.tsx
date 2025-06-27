@@ -79,7 +79,7 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
             <Input
               id="lmstudio-url"
               placeholder="http://192.168.0.11:1234"
-              value={settings?.lmstudioServerUrl || ''}
+              value={settings?.lmstudioServerUrl || 'http://192.168.0.11:1234'}
               onChange={(e) => onUpdateSettings({ lmstudioServerUrl: e.target.value })}
             />
           </div>

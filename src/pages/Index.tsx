@@ -11,12 +11,16 @@ import { generateSummary } from '@/lib/summaryService';
 import { AppHeader } from '@/components/AppHeader';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Mic, Settings } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Mic, Settings, Search } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 const Index = () => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
+  const [filteredRecordings, setFilteredRecordings] = useState<Recording[]>([]);
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
-  const [showRecordingInterface, setShowRecordingInterface] = useState(false);
+  const [showRecordingSheet, setShowRecordingSheet] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [settings, setSettings] = useState(null);
   const { isOnline, installPrompt, isInstalled, installApp } = usePWA();
   const navigate = useNavigate();
@@ -24,6 +28,20 @@ const Index = () => {
   useEffect(() => {
     initializeApp();
   }, []);
+
+  useEffect(() => {
+    // Filter recordings based on search query
+    if (searchQuery.trim() === '') {
+      setFilteredRecordings(recordings);
+    } else {
+      const filtered = recordings.filter(recording =>
+        recording.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        recording.transcriptMD?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        recording.summaryMD?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredRecordings(filtered);
+    }
+  }, [recordings, searchQuery]);
 
   const initializeApp = async () => {
     await initializeDefaultSettings();
@@ -130,7 +148,7 @@ const Index = () => {
       });
     } finally {
       loadRecordings();
-      setShowRecordingInterface(false);
+      setShowRecordingSheet(false);
     }
   };
 
@@ -255,80 +273,86 @@ const Index = () => {
         isInstalled={isInstalled}
         installApp={installApp}
         onOpenSettings={() => navigate('/settings')}
-        onOpenRecording={() => setShowRecordingInterface(true)}
+        onOpenRecording={() => setShowRecordingSheet(true)}
         showActions={true}
       />
       
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">
-          {showRecordingInterface ? (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold">New Recording</h2>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowRecordingInterface(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-              <RecordingInterface 
-                onRecordingComplete={handleRecordingComplete}
-                maxDuration={settings?.maxDuration || 1800}
-              />
-            </div>
-          ) : (
-            <>
-              <div className="text-center py-12">
-                <Mic className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                <h1 className="text-3xl font-bold mb-2">AI Note Taker</h1>
-                <p className="text-muted-foreground mb-6">Record, transcribe, and summarize your thoughts with AI</p>
-                <Button 
-                  size="lg" 
-                  onClick={() => setShowRecordingInterface(true)}
-                  className="mb-8"
-                >
-                  <Mic className="w-5 h-5 mr-2" />
-                  Start Recording
-                </Button>
-              </div>
+          <div className="text-center py-12">
+            <Mic className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h1 className="text-3xl font-bold mb-2">AI Note Taker</h1>
+            <p className="text-muted-foreground mb-6">Record, transcribe, and summarize your thoughts with AI</p>
+            <Button 
+              size="lg" 
+              onClick={() => setShowRecordingSheet(true)}
+              className="mb-8"
+            >
+              <Mic className="w-5 h-5 mr-2" />
+              Start Recording
+            </Button>
+          </div>
 
-              <div className="mt-8">
-                <h2 className="text-2xl font-bold mb-4">Recent Recordings</h2>
-                
-                {recordings.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-muted-foreground">No recordings yet. Start by making your first recording!</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {recordings.map((recording) => (
-                      <RecordingCard
-                        key={recording.id}
-                        recording={recording}
-                        onPlay={() => setSelectedRecording(recording)}
-                        onEdit={() => setSelectedRecording(recording)}
-                        onDelete={handleDeleteRecording}
-                      />
-                    ))}
-                  </div>
-                )}
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold">Recent Recordings</h2>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Search recordings..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            </>
-          )}
+            </div>
+            
+            {filteredRecordings.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  {searchQuery ? 'No recordings match your search.' : 'No recordings yet. Start by making your first recording!'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredRecordings.map((recording) => (
+                  <RecordingCard
+                    key={recording.id}
+                    recording={recording}
+                    onPlay={() => setSelectedRecording(recording)}
+                    onEdit={() => setSelectedRecording(recording)}
+                    onDelete={handleDeleteRecording}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Floating Action Button */}
-      {!showRecordingInterface && (
-        <Button
-          size="lg"
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
-          onClick={() => setShowRecordingInterface(true)}
-        >
-          <Mic className="w-6 h-6" />
-        </Button>
-      )}
+      <Button
+        size="lg"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
+        onClick={() => setShowRecordingSheet(true)}
+      >
+        <Mic className="w-6 h-6" />
+      </Button>
+
+      {/* Recording Sheet - Left Side */}
+      <Sheet open={showRecordingSheet} onOpenChange={setShowRecordingSheet}>
+        <SheetContent side="left" className="w-[400px] sm:w-[540px]">
+          <SheetHeader>
+            <SheetTitle>New Recording</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <RecordingInterface 
+              onRecordingComplete={handleRecordingComplete}
+              maxDuration={settings?.maxDuration || 1800}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <SidePanelSheet
         recording={selectedRecording}
