@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Recording, db } from '@/lib/database';
 
@@ -94,5 +93,6 @@ export const useRecordings = (params: UseRecordingsParams = {}) => {
     setSortOrder,
     favoriteRecording,
     deleteRecording,
+    loadRecordings,
   };
 };

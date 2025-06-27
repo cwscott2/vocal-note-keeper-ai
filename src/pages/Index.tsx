@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { RecordingCard } from '@/components/RecordingCard';
 import { useRecordings } from '@/hooks/useRecordings';
@@ -40,6 +39,7 @@ export default function Index() {
     setPageSize,
     favoriteRecording,
     deleteRecording,
+    loadRecordings,
   } = useRecordings({
     searchTerm: debouncedSearchTerm,
     startDate: dateRange[0]?.toISOString() || undefined,
@@ -107,8 +107,131 @@ export default function Index() {
     console.log('Recording completed:', audioBlob, duration);
     setShowRecordingInterface(false);
     
-    // Refresh recordings list to show the new recording
-    // The useRecordings hook will automatically reload when the recordings change
+    try {
+      // Get current settings
+      const allSettings = await db.settings.toArray();
+      const settings = allSettings[0];
+      
+      // Save to database with proper processing setup
+      const audioBlobHandle = `audio_${Date.now()}`;
+      await db.audioBlobs.put({ id: audioBlobHandle, blob: audioBlob });
+      
+      const recordingId = await db.recordings.add({
+        title: `Recording ${new Date().toLocaleString()}`,
+        createdAt: new Date(),
+        duration,
+        provider: settings?.selectedProvider || 'openai',
+        language: settings?.language || 'en',
+        audioBlobHandle,
+        processingStep: 'transcribing',
+        processingProgress: 0
+      });
+
+      // Trigger recordings refresh immediately
+      loadRecordings();
+      
+      toast({
+        title: "Recording saved",
+        description: "Processing will begin shortly"
+      });
+
+      // Start processing in background
+      processRecording(recordingId, settings);
+    } catch (error) {
+      console.error('Error saving recording:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save recording",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const processRecording = async (recordingId: number, settings: any) => {
+    try {
+      // Import the transcription service
+      const { transcribeAudio } = await import('@/lib/transcription');
+      const { generateSummary } = await import('@/lib/summaryService');
+      
+      // Get the recording
+      const recording = await db.recordings.get(recordingId);
+      if (!recording) return;
+
+      // Get the audio blob
+      const audioBlob = await db.audioBlobs.get(recording.audioBlobHandle);
+      if (!audioBlob) return;
+
+      if (!settings) return;
+
+      // Update status to transcribing
+      await db.recordings.update(recordingId, { 
+        processingStep: 'transcribing',
+        processingProgress: 10 
+      });
+      loadRecordings(); // Refresh UI
+
+      // Transcribe
+      const transcriptResult = await transcribeAudio(audioBlob.blob, settings);
+      
+      await db.recordings.update(recordingId, {
+        transcriptMD: transcriptResult.text,
+        processingProgress: 60
+      });
+      loadRecordings(); // Refresh UI
+
+      // Generate summary if enabled
+      if (settings.summaryProvider && settings.summaryProvider !== 'none') {
+        await db.recordings.update(recordingId, { 
+          processingStep: 'summarizing',
+          processingProgress: 70 
+        });
+        loadRecordings(); // Refresh UI
+
+        try {
+          const summaryResult = await generateSummary(transcriptResult.text, settings);
+          
+          await db.recordings.update(recordingId, {
+            title: summaryResult.title,
+            summaryMD: summaryResult.summary,
+            processingStep: 'completed',
+            processingProgress: 100
+          });
+        } catch (summaryError) {
+          console.error('Summary generation failed:', summaryError);
+          // Continue without summary
+          await db.recordings.update(recordingId, {
+            processingStep: 'completed',
+            processingProgress: 100
+          });
+        }
+      } else {
+        await db.recordings.update(recordingId, {
+          processingStep: 'completed',
+          processingProgress: 100
+        });
+      }
+
+      loadRecordings(); // Final refresh
+      
+      toast({
+        title: "Processing complete",
+        description: "Recording has been transcribed" + (settings.summaryProvider !== 'none' ? " and summarized" : "")
+      });
+
+    } catch (error) {
+      console.error('Processing failed:', error);
+      await db.recordings.update(recordingId, {
+        processingStep: 'failed',
+        processingProgress: 0
+      });
+      loadRecordings();
+      
+      toast({
+        title: "Processing failed",
+        description: "Please try again or check your settings",
+        variant: "destructive"
+      });
+    }
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
