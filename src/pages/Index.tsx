@@ -109,7 +109,7 @@ const Index = () => {
         await db.recordings.update(recordingId, {
           transcriptMD: transcript,
           provider: settings.selectedProvider,
-          processingStep: 'transcribed'
+          processingStep: 'completed'
         });
         
         loadRecordings();
@@ -201,7 +201,7 @@ const Index = () => {
         await db.recordings.update(recording.id!, {
           transcriptMD: transcript,
           provider: currentSettings[0].selectedProvider,
-          processingStep: 'transcribed'
+          processingStep: 'completed'
         });
         
         loadRecordings();
