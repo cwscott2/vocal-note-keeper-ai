@@ -1,4 +1,3 @@
-
 export interface TranscriptionProvider {
   name: string;
   displayName: string;
@@ -82,3 +81,29 @@ export const transcribeWithHuggingFace = async (audioBlob: Blob, apiKey: string,
 
 // Use the enhanced support detection from whisperWeb
 export { checkWhisperWebSupport as canUseWhisperWeb, transcribeWithWhisperWeb } from './whisperWeb';
+
+import { Settings } from './database';
+
+export const transcribeAudio = async (audioBlob: Blob, settings: Settings): Promise<string> => {
+  const { selectedProvider, selectedModel } = settings;
+
+  switch (selectedProvider) {
+    case 'openai':
+      if (!settings.openaiApiKey) {
+        throw new Error('OpenAI API key is required');
+      }
+      return await transcribeWithOpenAI(audioBlob, settings.openaiApiKey, selectedModel);
+
+    case 'huggingface':
+      if (!settings.huggingfaceApiKey) {
+        throw new Error('Hugging Face API key is required');
+      }
+      return await transcribeWithHuggingFace(audioBlob, settings.huggingfaceApiKey, selectedModel);
+
+    case 'whisper-web':
+      return await transcribeWithWhisperWeb(audioBlob, selectedModel);
+
+    default:
+      throw new Error(`Unsupported transcription provider: ${selectedProvider}`);
+  }
+};
