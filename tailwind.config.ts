@@ -66,6 +66,7 @@ export default {
 			},
 			backgroundSize: {
 				'size-200': '200% 200%',
+				'size-400': '400% 400%',
 			},
 			backgroundPosition: {
 				'pos-0': '0% 0%',
@@ -93,7 +94,7 @@ export default {
 						height: '0'
 					}
 				},
-				'gradient-shift': {
+				'mesh-gradient': {
 					'0%, 100%': {
 						'background-position': '0% 50%'
 					},
@@ -101,7 +102,7 @@ export default {
 						'background-position': '100% 50%'
 					}
 				},
-				'gradient-shift-fast': {
+				'mesh-gradient-fast': {
 					'0%, 100%': {
 						'background-position': '0% 50%'
 					},
@@ -113,8 +114,8 @@ export default {
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'gradient-shift': 'gradient-shift 3s ease infinite',
-				'gradient-shift-fast': 'gradient-shift-fast 1s ease infinite'
+				'mesh-gradient': 'mesh-gradient 8s ease infinite',
+				'mesh-gradient-fast': 'mesh-gradient-fast 2s ease infinite'
 			}
 		}
 	},

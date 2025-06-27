@@ -66,7 +66,7 @@ export const AppHeader = ({
             )}
             <div className="flex items-center space-x-2 cursor-pointer group" onClick={handleLogoClick}>
               <div className="flex flex-col">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent group-hover:bg-gradient-to-r group-hover:from-purple-400 group-hover:via-pink-400 group-hover:to-blue-400 transition-all duration-300 ease-in-out bg-size-200 bg-pos-0 group-hover:bg-pos-100">
+                <h1 className="text-2xl font-bold bg-gradient-to-br from-purple-600 via-pink-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent group-hover:animate-mesh-gradient-fast animate-mesh-gradient bg-size-400 transition-all duration-300 ease-in-out">
                   AI Note Taker
                 </h1>
                 <span className="text-xs text-muted-foreground -mt-1">by Outskill</span>
