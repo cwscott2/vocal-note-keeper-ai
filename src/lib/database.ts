@@ -1,4 +1,3 @@
-
 import Dexie, { Table } from 'dexie';
 
 export interface Recording {
@@ -14,6 +13,7 @@ export interface Recording {
   audioBlob?: Blob;
   processingStep?: 'transcribing' | 'summarizing' | 'completed' | 'failed';
   processingProgress?: number;
+  isFavorite?: boolean; // New favorite flag
 }
 
 export interface Settings {
