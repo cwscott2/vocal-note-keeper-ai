@@ -94,6 +94,7 @@ const Settings = ({ onLaunchWizard, onBack }: SettingsPageProps) => {
           installPrompt={installPrompt}
           isInstalled={isInstalled}
           installApp={installApp}
+          onOpenSettings={() => {}}
           showActions={false}
         />
         <div className="container mx-auto px-4 py-8">
@@ -112,6 +113,8 @@ const Settings = ({ onLaunchWizard, onBack }: SettingsPageProps) => {
         installPrompt={installPrompt}
         isInstalled={isInstalled}
         installApp={installApp}
+        onOpenSettings={() => {}}
+        onBack={onBack}
         showActions={false}
       />
       

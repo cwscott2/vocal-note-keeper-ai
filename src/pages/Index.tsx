@@ -145,7 +145,6 @@ const Index = () => {
       }
 
       if (transcription) {
-        // Generate summary if enabled
         let summaryContent = '';
         let updatedTitle = recording.title;
         
@@ -156,10 +155,8 @@ const Index = () => {
             updatedTitle = summaryResult.title || recording.title;
           } catch (error) {
             console.error('Summary generation failed:', error);
-            summaryContent = `# Summary\n\n*Summary generation failed*\n\n## Transcript\n\n${transcription}`;
+            summaryContent = '';
           }
-        } else {
-          summaryContent = `# Summary\n\n*Summaries are disabled in settings*\n\n## Key Points\n\n- Transcription completed successfully\n- Duration: ${Math.floor(recording.duration / 60)}:${(recording.duration % 60).toString().padStart(2, '0')}\n- Provider: ${provider}`;
         }
 
         await db.recordings.update(recording.id!, {

@@ -10,7 +10,7 @@ export interface Recording {
   language: string;
   summaryMD?: string;
   transcriptMD?: string;
-  audioBlobHandle: string; // IDB key or file handle reference
+  audioBlobHandle: string;
   audioBlob?: Blob;
   processingStep?: 'transcribing' | 'summarizing' | 'completed' | 'failed';
   processingProgress?: number;
@@ -28,7 +28,6 @@ export interface Settings {
   maxDuration: number;
   fileSystemHandle?: FileSystemDirectoryHandle;
   saveRecordings?: boolean;
-  // Summary settings
   summaryProvider: 'none' | 'huggingface' | 'openai' | 'ollama' | 'lmstudio';
   summaryModel?: string;
   ollamaUrl?: string;
@@ -62,7 +61,6 @@ export class AudioNotesDatabase extends Dexie {
 
 export const db = new AudioNotesDatabase();
 
-// Initialize default settings
 export const initializeDefaultSettings = async () => {
   const existingSettings = await db.settings.toArray();
   if (existingSettings.length === 0) {
@@ -71,7 +69,7 @@ export const initializeDefaultSettings = async () => {
       whisperModels: [],
       saveLocation: 'indexeddb',
       language: 'en',
-      maxDuration: 1800, // 30 minutes
+      maxDuration: 1800,
       saveRecordings: false,
       summaryProvider: 'none'
     });

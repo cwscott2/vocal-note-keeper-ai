@@ -6,6 +6,14 @@ export interface SummaryResult {
   summary: string;
 }
 
+export const SUMMARY_PROVIDERS = [
+  { name: 'none', displayName: 'Disabled' },
+  { name: 'openai', displayName: 'OpenAI' },
+  { name: 'huggingface', displayName: 'HuggingFace' },
+  { name: 'ollama', displayName: 'Ollama' },
+  { name: 'lmstudio', displayName: 'LM Studio' }
+];
+
 export const generateSummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
   if (!settings.summaryProvider || settings.summaryProvider === 'none') {
     throw new Error('Summary provider not configured');
@@ -37,11 +45,11 @@ const generateOpenAISummary = async (transcript: string, settings: Settings): Pr
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: settings.summaryModel || 'gpt-4.1-nano',
+      model: settings.summaryModel || 'gpt-4o-mini',
       messages: [
         {
           role: 'user',
-          content: `Please analyze this transcript and provide a title and summary. Respond with JSON containing "title" and "summary" fields. The summary should be in bullet point format using markdown.\n\nTranscript: ${transcript}`
+          content: `Please analyze this transcript and provide a title and summary. The summary should be in bullet point format using markdown.\n\nTranscript: ${transcript}`
         }
       ],
       response_format: {
@@ -109,7 +117,6 @@ const generateHuggingFaceSummary = async (transcript: string, settings: Settings
     throw new Error('No summary returned from HuggingFace');
   }
 
-  // Extract title from first line or create one
   const lines = summaryText.split('\n').filter(line => line.trim());
   const title = lines[0]?.length > 50 ? 'Generated Summary' : lines[0] || 'Generated Summary';
   
@@ -120,7 +127,7 @@ const generateHuggingFaceSummary = async (transcript: string, settings: Settings
 };
 
 const generateOllamaSummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
-  const serverUrl = settings.ollamaServerUrl || 'http://localhost:11434';
+  const serverUrl = settings.ollamaUrl || 'http://localhost:11434';
   
   const response = await fetch(`${serverUrl}/api/chat`, {
     method: 'POST',
@@ -153,7 +160,6 @@ const generateOllamaSummary = async (transcript: string, settings: Settings): Pr
       ? JSON.parse(result.message.content) 
       : result.message.content;
   } catch (error) {
-    // Fallback if JSON parsing fails
     const content = result.message.content;
     return {
       title: 'Ollama Summary',
@@ -168,7 +174,7 @@ const generateOllamaSummary = async (transcript: string, settings: Settings): Pr
 };
 
 const generateLMStudioSummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
-  const serverUrl = settings.lmstudioServerUrl || 'http://192.168.0.11:1234';
+  const serverUrl = settings.lmstudioUrl || 'http://192.168.0.11:1234';
   
   const response = await fetch(`${serverUrl}/v1/chat/completions`, {
     method: 'POST',
@@ -198,7 +204,6 @@ const generateLMStudioSummary = async (transcript: string, settings: Settings): 
   try {
     parsed = JSON.parse(result.choices[0].message.content);
   } catch (error) {
-    // Fallback if JSON parsing fails
     const content = result.choices[0].message.content;
     return {
       title: 'LM Studio Summary',

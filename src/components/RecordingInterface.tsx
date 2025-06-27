@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { Button } from '@/components/ui/button';
@@ -150,7 +149,6 @@ export const RecordingInterface = ({ onRecordingComplete, maxDuration }: Recordi
 
   return (
     <div className="space-y-6">
-      {/* Record Audio - First Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -202,7 +200,6 @@ export const RecordingInterface = ({ onRecordingComplete, maxDuration }: Recordi
                 </div>
               </div>
 
-              {/* Audio Level Indicator */}
               <div className="flex items-center justify-center">
                 <div className="flex space-x-1">
                   {Array.from({ length: 10 }, (_, i) => (
@@ -227,7 +224,6 @@ export const RecordingInterface = ({ onRecordingComplete, maxDuration }: Recordi
         </CardContent>
       </Card>
 
-      {/* Upload Audio - Second Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

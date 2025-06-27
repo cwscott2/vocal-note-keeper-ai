@@ -1,7 +1,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Settings as SettingsIcon, WifiOff, Wifi, Download } from 'lucide-react';
+import { Mic, Settings as SettingsIcon, WifiOff, Wifi, Download, ArrowLeft } from 'lucide-react';
 
 interface AppHeaderProps {
   isOnline: boolean;
@@ -10,6 +10,7 @@ interface AppHeaderProps {
   installApp: () => void;
   onOpenSettings?: () => void;
   onOpenRecording?: () => void;
+  onBack?: () => void;
   showActions?: boolean;
 }
 
@@ -20,6 +21,7 @@ export const AppHeader = ({
   installApp, 
   onOpenSettings, 
   onOpenRecording,
+  onBack,
   showActions = true 
 }: AppHeaderProps) => {
   return (
@@ -48,6 +50,12 @@ export const AppHeader = ({
 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
+            {onBack && (
+              <Button variant="outline" size="sm" onClick={onBack}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+            )}
             <div className="flex items-center space-x-2">
               <Mic className="w-8 h-8 text-primary" />
               <h1 className="text-2xl font-bold">AI Note Taker</h1>
