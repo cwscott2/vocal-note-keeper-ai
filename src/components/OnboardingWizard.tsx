@@ -443,7 +443,6 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
                     : 'Used for summarization'
                   }
                 </p>
-                {renderOpenAIKeyGuide()}
               </div>
             )}
 
@@ -458,7 +457,6 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
                   onChange={(e) => setApiKeys(prev => ({ ...prev, huggingface: e.target.value }))}
                 />
                 <p className="text-sm text-muted-foreground">Used for transcription</p>
-                {renderHuggingFaceKeyGuide()}
               </div>
             )}
 
@@ -517,6 +515,15 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
     }
   };
 
+  // Determine which guide to show based on selected providers
+  const shouldShowOpenAIGuide = () => {
+    return currentStep === 3 && (selectedProvider === 'openai' || selectedSummaryProvider === 'openai');
+  };
+
+  const shouldShowHuggingFaceGuide = () => {
+    return currentStep === 3 && selectedProvider === 'huggingface';
+  };
+
   const canProceed = () => {
     switch (currentStep) {
       case 1:
@@ -539,40 +546,46 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle className="text-center">
-            {showBackButton ? 'Setup Wizard' : 'Welcome to AI Note Taker'}
-          </CardTitle>
-          <div className="space-y-2">
-            <Progress value={(currentStep / (steps.length - 1)) * 100} />
-            <p className="text-sm text-muted-foreground text-center">
-              Step {currentStep + 1} of {steps.length}: {steps[currentStep]}
-            </p>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="space-y-6">
-          {renderStep()}
+      <div className="w-full max-w-2xl space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-center">
+              {showBackButton ? 'Setup Wizard' : 'Welcome to AI Note Taker'}
+            </CardTitle>
+            <div className="space-y-2">
+              <Progress value={(currentStep / (steps.length - 1)) * 100} />
+              <p className="text-sm text-muted-foreground text-center">
+                Step {currentStep + 1} of {steps.length}: {steps[currentStep]}
+              </p>
+            </div>
+          </CardHeader>
           
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 0 && !showBackButton}
-            >
-              {currentStep === 0 && showBackButton ? 'Close' : 'Back'}
-            </Button>
+          <CardContent className="space-y-6">
+            {renderStep()}
             
-            <Button
-              onClick={handleNext}
-              disabled={!canProceed()}
-            >
-              {currentStep === steps.length - 1 ? 'Complete Setup' : 'Next'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex justify-between">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={currentStep === 0 && !showBackButton}
+              >
+                {currentStep === 0 && showBackButton ? 'Close' : 'Back'}
+              </Button>
+              
+              <Button
+                onClick={handleNext}
+                disabled={!canProceed()}
+              >
+                {currentStep === steps.length - 1 ? 'Complete Setup' : 'Next'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Show relevant guide outside the main card */}
+        {shouldShowOpenAIGuide() && renderOpenAIKeyGuide()}
+        {shouldShowHuggingFaceGuide() && renderHuggingFaceKeyGuide()}
+      </div>
     </div>
   );
 };
