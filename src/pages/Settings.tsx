@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RefreshCw, ArrowLeft, Play } from 'lucide-react';
+import { RefreshCw, Play } from 'lucide-react';
 import { db, Settings as SettingsType } from '@/lib/database';
 import { toast } from '@/hooks/use-toast';
 import { TranscriptionSettings } from '@/components/settings/TranscriptionSettings';
@@ -11,19 +11,20 @@ import { RecordingSettings } from '@/components/settings/RecordingSettings';
 import { StorageSettings } from '@/components/settings/StorageSettings';
 import { AppHeader } from '@/components/AppHeader';
 import { usePWA } from '@/hooks/usePWA';
+import { useNavigate } from 'react-router-dom';
 
 interface SettingsPageProps {
   onLaunchWizard: () => void;
-  onBack?: () => void;
 }
 
-const Settings = ({ onLaunchWizard, onBack }: SettingsPageProps) => {
+const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [storageUsed, setStorageUsed] = useState(0);
 
   const { isOnline, installPrompt, isInstalled, installApp } = usePWA();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadSettings();
@@ -94,7 +95,6 @@ const Settings = ({ onLaunchWizard, onBack }: SettingsPageProps) => {
           installPrompt={installPrompt}
           isInstalled={isInstalled}
           installApp={installApp}
-          onOpenSettings={() => {}}
           showActions={false}
         />
         <div className="container mx-auto px-4 py-8">
@@ -113,26 +113,16 @@ const Settings = ({ onLaunchWizard, onBack }: SettingsPageProps) => {
         installPrompt={installPrompt}
         isInstalled={isInstalled}
         installApp={installApp}
-        onOpenSettings={() => {}}
-        onBack={onBack}
         showActions={false}
       />
       
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            {onBack && (
-              <Button variant="outline" size="sm" onClick={onBack}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-            )}
-            <div>
-              <h1 className="text-3xl font-bold">Settings</h1>
-              <p className="text-muted-foreground mt-2">
-                Configure your AI Note Taker preferences
-              </p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold">Settings</h1>
+            <p className="text-muted-foreground mt-2">
+              Configure your AI Note Taker preferences
+            </p>
           </div>
           <Button onClick={onLaunchWizard} variant="outline">
             <Play className="w-4 h-4 mr-2" />

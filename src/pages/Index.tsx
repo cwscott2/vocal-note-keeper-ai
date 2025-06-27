@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { RecordingCard } from '@/components/RecordingCard';
 import { RecordingInterface } from '@/components/RecordingInterface';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Search, Plus, Loader2, Mic } from 'lucide-react';
 import { Recording, db, initializeDefaultSettings } from '@/lib/database';
 import { transcribeWithOpenAI, transcribeWithHuggingFace, transcribeWithWhisperWeb } from '@/lib/transcription';
@@ -14,7 +14,7 @@ import { toast } from '@/hooks/use-toast';
 import { RecordingDetailsPanel } from '@/components/RecordingDetailsPanel';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
 import { AppHeader } from '@/components/AppHeader';
-import Settings from '@/pages/Settings';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -28,6 +28,7 @@ const Index = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const { isOnline, installPrompt, isInstalled, installApp } = usePWA();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadRecordings = async () => {
@@ -269,10 +270,6 @@ const Index = () => {
     return <OnboardingWizard onComplete={() => setShowOnboarding(false)} />;
   }
 
-  if (showSettings) {
-    return <Settings onLaunchWizard={() => setShowOnboarding(true)} />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <AppHeader
@@ -280,7 +277,7 @@ const Index = () => {
         installPrompt={installPrompt}
         isInstalled={isInstalled}
         installApp={installApp}
-        onOpenSettings={() => setShowSettings(true)}
+        onOpenSettings={() => navigate('/settings')}
         onOpenRecording={() => setIsRecordingSheetOpen(true)}
       />
 

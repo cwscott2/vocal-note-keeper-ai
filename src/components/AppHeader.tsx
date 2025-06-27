@@ -2,6 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mic, Settings as SettingsIcon, WifiOff, Wifi, Download, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface AppHeaderProps {
   isOnline: boolean;
@@ -24,6 +25,12 @@ export const AppHeader = ({
   onBack,
   showActions = true 
 }: AppHeaderProps) => {
+  const navigate = useNavigate();
+
+  const handleLogoClick = () => {
+    navigate('/');
+  };
+
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 py-4">
@@ -56,9 +63,9 @@ export const AppHeader = ({
                 Back
               </Button>
             )}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={handleLogoClick}>
               <Mic className="w-8 h-8 text-primary" />
-              <h1 className="text-2xl font-bold">AI Note Taker</h1>
+              <h1 className="text-2xl font-bold hover:text-primary/80 transition-colors">AI Note Taker</h1>
               {!isOnline && <WifiOff className="w-5 h-5 text-muted-foreground" />}
               {isOnline && <Wifi className="w-5 h-5 text-green-500" />}
             </div>

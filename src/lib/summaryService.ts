@@ -7,11 +7,11 @@ export interface SummaryResult {
 }
 
 export const SUMMARY_PROVIDERS = [
-  { name: 'none', displayName: 'Disabled' },
-  { name: 'openai', displayName: 'OpenAI' },
-  { name: 'huggingface', displayName: 'HuggingFace' },
-  { name: 'ollama', displayName: 'Ollama' },
-  { name: 'lmstudio', displayName: 'LM Studio' }
+  { name: 'none', displayName: 'No Summary', requiresApiKey: false },
+  { name: 'openai', displayName: 'OpenAI GPT', requiresApiKey: true },
+  { name: 'huggingface', displayName: 'Hugging Face', requiresApiKey: true },
+  { name: 'ollama', displayName: 'Ollama (Local)', requiresApiKey: false },
+  { name: 'lmstudio', displayName: 'LM Studio (Local)', requiresApiKey: false }
 ];
 
 export const generateSummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
