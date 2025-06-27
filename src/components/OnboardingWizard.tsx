@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,13 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, AlertCircle, Download, Folder, HardDrive, HelpCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle, Download, Folder, HardDrive, ExternalLink, Copy, CreditCard, Key, Settings, Plus, User } from 'lucide-react';
 import { canUseWhisperWeb, TRANSCRIPTION_PROVIDERS } from '@/lib/transcription';
-import { SUMMARY_PROVIDERS } from '@/lib/summaryService';
 import { db, Settings } from '@/lib/database';
 import { toast } from '@/hooks/use-toast';
-import { OpenAIKeyGuide } from '@/components/guides/OpenAIKeyGuide';
-import { HuggingFaceKeyGuide } from '@/components/guides/HuggingFaceKeyGuide';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -23,14 +21,12 @@ interface OnboardingWizardProps {
 export const OnboardingWizard = ({ onComplete, showBackButton = false }: OnboardingWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedProvider, setSelectedProvider] = useState('whisper-web');
-  const [selectedSummaryProvider, setSelectedSummaryProvider] = useState<'none' | 'huggingface' | 'openai' | 'ollama' | 'lmstudio'>('none');
+  const [selectedSummaryProvider, setSelectedSummaryProvider] = useState<'none' | 'openai'>('none');
   const [apiKeys, setApiKeys] = useState({ openai: '', huggingface: '' });
   const [storageOption, setStorageOption] = useState<'indexeddb' | 'filesystem'>('indexeddb');
   const [whisperSupport, setWhisperSupport] = useState<{ supported: boolean; reason?: string } | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [openAIGuideOpen, setOpenAIGuideOpen] = useState(false);
-  const [hfGuideOpen, setHfGuideOpen] = useState(false);
 
   const steps = [
     'Capability Check',
@@ -41,6 +37,12 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
     'Complete Setup'
   ];
 
+  // Filtered summary providers - only show None and OpenAI
+  const FILTERED_SUMMARY_PROVIDERS = [
+    { name: 'none', displayName: 'No Summary', requiresApiKey: false },
+    { name: 'openai', displayName: 'OpenAI', requiresApiKey: true }
+  ];
+
   useEffect(() => {
     // Check Whisper Web support on mount
     const support = canUseWhisperWeb();
@@ -48,6 +50,24 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
     if (!support.supported) {
       setSelectedProvider('openai');
     }
+
+    // Load existing settings to prefill API keys
+    const loadExistingSettings = async () => {
+      try {
+        const settings = await db.settings.toArray();
+        if (settings.length > 0) {
+          const setting = settings[0];
+          setApiKeys({
+            openai: setting.openaiApiKey || '',
+            huggingface: setting.huggingfaceApiKey || ''
+          });
+        }
+      } catch (error) {
+        console.log('No existing settings found');
+      }
+    };
+
+    loadExistingSettings();
   }, []);
 
   const handleNext = async () => {
@@ -97,6 +117,7 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
         whisperModels: selectedProvider === 'whisper-web' ? ['tiny'] : [],
         openaiApiKey: apiKeys.openai || undefined,
         hfApiKey: apiKeys.huggingface || undefined,
+        huggingfaceApiKey: apiKeys.huggingface || undefined,
         saveLocation: storageOption,
         language: 'en',
         maxDuration: 1800,
@@ -124,6 +145,162 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
       });
     }
   };
+
+  const renderOpenAIKeyGuide = () => (
+    <div className="space-y-4 mt-4 p-4 bg-muted/50 rounded-lg">
+      <h4 className="font-semibold text-sm">How to get your OpenAI API Key:</h4>
+      
+      <div className="space-y-3 text-sm">
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">1</span>
+          <div>
+            <p>Create OpenAI Account</p>
+            <Button variant="outline" size="sm" className="mt-1" asChild>
+              <a href="https://auth.openai.com/create-account" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Sign up for OpenAI
+              </a>
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">2</span>
+          <div>
+            <p>Go to OpenAI Platform</p>
+            <Button variant="outline" size="sm" className="mt-1" asChild>
+              <a href="https://platform.openai.com/docs/overview" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Open Platform Docs
+              </a>
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">3</span>
+          <p>Click <Settings className="w-3 h-3 inline mx-1" /> Settings icon in the platform</p>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">4</span>
+          <div>
+            <p>Add Billing Credits</p>
+            <ul className="ml-2 mt-1 space-y-1 text-xs text-muted-foreground">
+              <li>• Go to "Billing" page</li>
+              <li>• Click "Add to credit balance"</li>
+              <li>• Add credits (minimum $5 recommended)</li>
+            </ul>
+            <div className="flex items-center gap-2 mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+              <CreditCard className="w-3 h-3 text-yellow-600" />
+              <span className="text-yellow-800">Credits are required to use the API</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">5</span>
+          <div>
+            <p>Create API Key</p>
+            <ul className="ml-2 mt-1 space-y-1 text-xs text-muted-foreground">
+              <li>• Go to "API keys" section</li>
+              <li>• Click <Plus className="w-3 h-3 inline mx-1" /> "Create new secret key"</li>
+              <li>• Name it "audionotes"</li>
+              <li>• Select "Default" project</li>
+              <li>• Click "Create secret key"</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">6</span>
+          <div>
+            <p>Save Your Key</p>
+            <ul className="ml-2 mt-1 space-y-1 text-xs text-muted-foreground">
+              <li>• In the "Save your key" dialogue</li>
+              <li>• Click <Copy className="w-3 h-3 inline mx-1" /> "Copy" for the key</li>
+              <li>• Paste it in the field above</li>
+            </ul>
+            <div className="flex items-center gap-2 mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+              <Key className="w-3 h-3 text-red-600" />
+              <span className="text-red-800">Save this key - you won't be able to see it again!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderHuggingFaceKeyGuide = () => (
+    <div className="space-y-4 mt-4 p-4 bg-muted/50 rounded-lg">
+      <h4 className="font-semibold text-sm">How to get your Hugging Face API Key:</h4>
+      
+      <div className="space-y-3 text-sm">
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">1</span>
+          <div>
+            <p>Go to Hugging Face</p>
+            <Button variant="outline" size="sm" className="mt-1" asChild>
+              <a href="https://huggingface.co" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Visit huggingface.co
+              </a>
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">2</span>
+          <p>Sign up for Free Account</p>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">3</span>
+          <p>Click on your <User className="w-3 h-3 inline mx-1" /> profile icon in the top left</p>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">4</span>
+          <div>
+            <p>Access Tokens</p>
+            <ul className="ml-2 mt-1 space-y-1 text-xs text-muted-foreground">
+              <li>• Select "Access Tokens" from dropdown</li>
+              <li>• Enter your password if prompted</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">5</span>
+          <div>
+            <p>Create New Token</p>
+            <ul className="ml-2 mt-1 space-y-1 text-xs text-muted-foreground">
+              <li>• Click <Plus className="w-3 h-3 inline mx-1" /> "Create new token"</li>
+              <li>• Select "Read" in the tabs</li>
+              <li>• Enter "Token name" as "audionotes"</li>
+              <li>• Click "Create token"</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2">
+          <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs mt-0.5">6</span>
+          <div>
+            <p>Save Your Token</p>
+            <ul className="ml-2 mt-1 space-y-1 text-xs text-muted-foreground">
+              <li>• In "Save your Access Token" dialogue</li>
+              <li>• Click <Copy className="w-3 h-3 inline mx-1" /> "Copy" for the token</li>
+              <li>• Paste it in the field above</li>
+            </ul>
+            <div className="flex items-center gap-2 mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
+              <Key className="w-3 h-3 text-green-600" />
+              <span className="text-green-800">Free tier includes generous API limits!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderStep = () => {
     switch (currentStep) {
@@ -201,9 +378,9 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
             
             <RadioGroup 
               value={selectedSummaryProvider} 
-              onValueChange={(value) => setSelectedSummaryProvider(value as 'none' | 'huggingface' | 'openai' | 'ollama' | 'lmstudio')}
+              onValueChange={(value) => setSelectedSummaryProvider(value as 'none' | 'openai')}
             >
-              {SUMMARY_PROVIDERS.map((provider) => (
+              {FILTERED_SUMMARY_PROVIDERS.map((provider) => (
                 <div key={provider.name} className="flex items-center space-x-2">
                   <RadioGroupItem value={provider.name} id={`summary-${provider.name}`} />
                   <Label htmlFor={`summary-${provider.name}`} className="flex items-center gap-2">
@@ -250,17 +427,7 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
             
             {(selectedProvider === 'openai' || selectedSummaryProvider === 'openai') && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="openai-key">OpenAI API Key</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setOpenAIGuideOpen(true)}
-                    className="h-auto p-1"
-                  >
-                    <HelpCircle className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Label htmlFor="openai-key">OpenAI API Key</Label>
                 <Input
                   id="openai-key"
                   type="password"
@@ -276,22 +443,13 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
                     : 'Used for summarization'
                   }
                 </p>
+                {renderOpenAIKeyGuide()}
               </div>
             )}
 
-            {(selectedProvider === 'huggingface' || selectedSummaryProvider === 'huggingface') && (
+            {selectedProvider === 'huggingface' && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="hf-key">Hugging Face API Key</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setHfGuideOpen(true)}
-                    className="h-auto p-1"
-                  >
-                    <HelpCircle className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Label htmlFor="hf-key">Hugging Face API Key</Label>
                 <Input
                   id="hf-key"
                   type="password"
@@ -299,14 +457,8 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
                   value={apiKeys.huggingface}
                   onChange={(e) => setApiKeys(prev => ({ ...prev, huggingface: e.target.value }))}
                 />
-                <p className="text-sm text-muted-foreground">
-                  {selectedProvider === 'huggingface' && selectedSummaryProvider === 'huggingface' 
-                    ? 'Used for both transcription and summarization'
-                    : selectedProvider === 'huggingface' 
-                    ? 'Used for transcription'
-                    : 'Used for summarization'
-                  }
-                </p>
+                <p className="text-sm text-muted-foreground">Used for transcription</p>
+                {renderHuggingFaceKeyGuide()}
               </div>
             )}
 
@@ -370,13 +522,13 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
       case 1:
         return selectedProvider !== '';
       case 2:
-        return selectedSummaryProvider !== 'none';
+        return true; // Allow proceeding with "No Summary" option
       case 3:
         if (selectedProvider === 'whisper-web') return !isDownloading;
         if (selectedProvider === 'openai' || selectedSummaryProvider === 'openai') {
           return apiKeys.openai.length > 0;
         }
-        if (selectedProvider === 'huggingface' || selectedSummaryProvider === 'huggingface') {
+        if (selectedProvider === 'huggingface') {
           return apiKeys.huggingface.length > 0;
         }
         return true;
@@ -421,16 +573,6 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
           </div>
         </CardContent>
       </Card>
-
-      <OpenAIKeyGuide 
-        open={openAIGuideOpen}
-        onOpenChange={setOpenAIGuideOpen}
-      />
-      
-      <HuggingFaceKeyGuide 
-        open={hfGuideOpen}
-        onOpenChange={setHfGuideOpen}
-      />
     </div>
   );
 };
