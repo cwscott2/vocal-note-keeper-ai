@@ -16,7 +16,7 @@ export const TRANSCRIPTION_PROVIDERS: TranscriptionProvider[] = [
   {
     name: 'openai',
     displayName: 'OpenAI',
-    models: ['whisper-1', 'gpt-4o-mini', 'gpt-4o', 'gpt-4o-audio'],
+    models: ['whisper-1', 'gpt-4o-mini'],
     requiresApiKey: true
   },
   {

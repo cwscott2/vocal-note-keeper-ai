@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,13 +25,24 @@ export const TranscriptionSettings = ({ settings, onUpdateSettings }: Transcript
 
   const whisperWebSupport = checkWhisperWebSupport();
 
+  // Set default model when provider changes
+  const handleProviderChange = (provider: string) => {
+    const defaultModel = provider === 'openai' ? 'whisper-1' : 
+                        provider === 'huggingface' ? 'openai/whisper-large-v3-turbo' :
+                        'tiny';
+    onUpdateSettings({ 
+      selectedProvider: provider,
+      selectedModel: defaultModel 
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div>
         <Label>Provider</Label>
         <Select
           value={settings?.selectedProvider || ''}
-          onValueChange={(value) => onUpdateSettings({ selectedProvider: value })}
+          onValueChange={handleProviderChange}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select transcription provider" />
@@ -72,7 +82,9 @@ export const TranscriptionSettings = ({ settings, onUpdateSettings }: Transcript
           <SelectContent>
             {getProviderModels(settings?.selectedProvider || '').map((model) => (
               <SelectItem key={model} value={model}>
-                {model}
+                {model === 'whisper-1' ? 'Whisper' : 
+                 model === 'gpt-4o-mini' ? 'GPT-4o Mini Transcribe' :
+                 model}
               </SelectItem>
             ))}
           </SelectContent>

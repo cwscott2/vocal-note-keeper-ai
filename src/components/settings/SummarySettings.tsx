@@ -64,17 +64,17 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
           <div>
             <Label>Model</Label>
             <Select
-              value={settings?.summaryModel || 'gpt-4o-mini'}
+              value={settings?.summaryModel || 'gpt-4.1-nano'}
               onValueChange={(value) => onUpdateSettings({ summaryModel: value })}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="gpt-4o-mini">GPT-4o mini</SelectItem>
+                <SelectItem value="gpt-4.1-nano">GPT-4.1 Nano</SelectItem>
+                <SelectItem value="gpt-4o-mini">GPT-4.1 Mini</SelectItem>
                 <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
-                <SelectItem value="gpt-4.1-mini">GPT-4.1 mini</SelectItem>
-                <SelectItem value="gpt-4.1-nano">GPT-4.1 nano</SelectItem>
+                <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
               </SelectContent>
             </Select>
           </div>

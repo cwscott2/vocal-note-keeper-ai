@@ -147,6 +147,7 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
         language: 'en',
         maxDuration: 1800,
         summaryProvider: selectedSummaryProvider,
+        summaryModel: selectedSummaryProvider === 'openai' ? 'gpt-4.1-nano' : undefined,
         saveRecordings: storageOption === 'filesystem'
       };
 
