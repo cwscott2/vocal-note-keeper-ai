@@ -64,8 +64,13 @@ export const AppHeader = ({
               </Button>
             )}
             <div className="flex items-center space-x-2 cursor-pointer" onClick={handleLogoClick}>
-              <Mic className="w-8 h-8 text-primary" />
-              <h1 className="text-2xl font-bold hover:text-primary/80 transition-colors">AI Note Taker</h1>
+              <div className="flex items-center space-x-2">
+                <Mic className="w-8 h-8 text-primary" />
+                <div className="flex flex-col">
+                  <h1 className="text-2xl font-bold hover:text-primary/80 transition-colors">AI Note Taker</h1>
+                  <span className="text-xs text-muted-foreground -mt-1">by Outskill</span>
+                </div>
+              </div>
               {!isOnline && <WifiOff className="w-5 h-5 text-muted-foreground" />}
               {isOnline && <Wifi className="w-5 h-5 text-green-500" />}
             </div>

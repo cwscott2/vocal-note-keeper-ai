@@ -99,6 +99,9 @@ export const RecordingDetailsPanel = ({
   };
 
   const formatTime = (seconds: number) => {
+    if (!isFinite(seconds) || isNaN(seconds)) {
+      return '0:00';
+    }
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -119,7 +122,7 @@ export const RecordingDetailsPanel = ({
 
   if (!recording) return null;
 
-  const hasAudio = audioBlob !== null;
+  const hasAudio = audioBlob !== null && isFinite(duration) && !isNaN(duration) && duration > 0;
   const hasSummary = recording.summaryMD && recording.summaryMD.trim() !== '';
 
   return (
@@ -140,7 +143,7 @@ export const RecordingDetailsPanel = ({
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
-          {/* Audio Player - Only show if audio is available */}
+          {/* Audio Player - Only show if audio is available and valid */}
           {hasAudio && (
             <div className="space-y-3">
               <div className="flex items-center gap-3">

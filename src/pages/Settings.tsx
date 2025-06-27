@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { SummarySettings } from '@/components/settings/SummarySettings';
 import { ApiKeysSettings } from '@/components/settings/ApiKeysSettings';
 import { RecordingSettings } from '@/components/settings/RecordingSettings';
 import { StorageSettings } from '@/components/settings/StorageSettings';
+import { ExportSettings } from '@/components/settings/ExportSettings';
 import { AppHeader } from '@/components/AppHeader';
 import { usePWA } from '@/hooks/usePWA';
 import { useNavigate } from 'react-router-dom';
@@ -196,6 +198,9 @@ const Settings = ({ onLaunchWizard }: SettingsPageProps) => {
               />
             </CardContent>
           </Card>
+
+          {/* Export Settings */}
+          <ExportSettings />
 
           <div className="flex justify-end">
             <Button 

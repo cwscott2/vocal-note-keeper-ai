@@ -1,10 +1,12 @@
 
 import { useState } from 'react';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertCircle } from 'lucide-react';
 import { Settings } from '@/lib/database';
 import { SUMMARY_PROVIDERS } from '@/lib/summaryService';
@@ -17,35 +19,46 @@ interface SummarySettingsProps {
 
 export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsProps) => {
   const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [apiKeyDialog, setApiKeyDialog] = useState(false);
+
+  const summaryEnabled = settings?.summaryProvider !== 'none' && settings?.summaryProvider;
+  const hasOpenAIKey = settings?.openaiApiKey && settings.openaiApiKey.trim() !== '';
+
+  const handleSummaryToggle = (enabled: boolean) => {
+    if (enabled && !hasOpenAIKey) {
+      setApiKeyDialog(true);
+      return;
+    }
+    
+    if (enabled) {
+      onUpdateSettings({ summaryProvider: 'openai' });
+    } else {
+      onUpdateSettings({ summaryProvider: 'none' });
+    }
+  };
 
   return (
     <div className="space-y-4">
-      <div>
-        <Label>Summary Provider</Label>
-        <Select
-          value={settings?.summaryProvider || 'none'}
-          onValueChange={(value) => onUpdateSettings({ summaryProvider: value as any })}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SUMMARY_PROVIDERS.map((provider) => (
-              <SelectItem key={provider.name} value={provider.name}>
-                {provider.displayName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label>Enable Summarization</Label>
+          <p className="text-sm text-muted-foreground">
+            Generate AI summaries of your recordings
+          </p>
+        </div>
+        <Switch
+          checked={summaryEnabled}
+          onCheckedChange={handleSummaryToggle}
+        />
       </div>
 
-      {settings?.summaryProvider === 'openai' && (
+      {summaryEnabled && (
         <>
-          {!settings?.openaiApiKey && (
+          {!hasOpenAIKey && (
             <Alert variant="destructive">
               <AlertCircle className="w-4 h-4" />
               <AlertDescription>
-                OpenAI API Key required for this
+                OpenAI API Key required for summarization
               </AlertDescription>
             </Alert>
           )}
@@ -69,37 +82,7 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
         </>
       )}
 
-      {settings?.summaryProvider === 'lmstudio' && (
-        <>
-          <div>
-            <Label htmlFor="lmstudio-server-url">Server URL & Port</Label>
-            <Input
-              id="lmstudio-server-url"
-              placeholder="http://192.168.0.11:1234"
-              value={settings?.lmstudioServerUrl || ''}
-              onChange={(e) => onUpdateSettings({ lmstudioServerUrl: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="lmstudio-model">Model</Label>
-            <Input
-              id="lmstudio-model"
-              placeholder="lmstudio-community/gemma-3-1B-it-qat-GGUF"
-              value={settings?.summaryModel || ''}
-              onChange={(e) => onUpdateSettings({ summaryModel: e.target.value })}
-              required
-            />
-          </div>
-          <Alert>
-            <AlertCircle className="w-4 h-4" />
-            <AlertDescription>
-              Make sure LM Studio is running with the model loaded
-            </AlertDescription>
-          </Alert>
-        </>
-      )}
-
-      {settings?.summaryProvider !== 'none' && (
+      {summaryEnabled && hasOpenAIKey && (
         <Button 
           variant="outline" 
           className="w-full"
@@ -113,6 +96,22 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
         open={testDialogOpen}
         onOpenChange={setTestDialogOpen}
       />
+
+      <Dialog open={apiKeyDialog} onOpenChange={setApiKeyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>OpenAI API Key Required</DialogTitle>
+            <DialogDescription>
+              You need to add your OpenAI API Key in the API Keys section before enabling summarization.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setApiKeyDialog(false)}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
