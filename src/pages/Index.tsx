@@ -103,6 +103,11 @@ export default function Index() {
     toggleFavorite(recording);
   };
 
+  const handleRecordingComplete = (audioBlob: Blob, duration: number) => {
+    console.log('Recording completed:', audioBlob, duration);
+    setShowRecordingInterface(false);
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
@@ -277,7 +282,7 @@ export default function Index() {
           }}
           aria-label="Start new recording"
         >
-          <Mic className="w-6 h-6 text-white stroke-[1.25] group-hover:scale-110 transition-transform duration-200" />
+          <Mic className="w-6 h-6 text-white stroke-[1.25]" />
         </button>
       </div>
 
@@ -293,7 +298,10 @@ export default function Index() {
 
       {/* Recording Interface */}
       {showRecordingInterface && (
-        <RecordingInterface onClose={() => setShowRecordingInterface(false)} />
+        <RecordingInterface 
+          onRecordingComplete={handleRecordingComplete} 
+          maxDuration={1500}
+        />
       )}
     </div>
   );
