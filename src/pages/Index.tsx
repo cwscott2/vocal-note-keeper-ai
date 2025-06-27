@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { RecordingCard } from '@/components/RecordingCard';
 import { useRecordings } from '@/hooks/useRecordings';
@@ -23,6 +24,7 @@ import {
 import { Settings as SettingsIcon, Mic, X } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { SidePanel } from '@/components/SidePanel';
+import { Recording } from '@/lib/database';
 
 export default function Index() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,15 +72,15 @@ export default function Index() {
   };
 
   const toggleFavorite = useCallback(
-    (id: string) => {
-      favoriteRecording(id);
+    (recording: Recording) => {
+      favoriteRecording(recording.id?.toString() || '');
     },
     [favoriteRecording]
   );
 
   const removeRecording = useCallback(
-    (id: string) => {
-      deleteRecording(id);
+    (recording: Recording) => {
+      deleteRecording(recording.id?.toString() || '');
     },
     [deleteRecording]
   );
