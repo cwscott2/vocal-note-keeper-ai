@@ -1,26 +1,35 @@
+
 import { useState, useEffect } from 'react';
 import { RecordingCard } from '@/components/RecordingCard';
 import { RecordingInterface } from '@/components/RecordingInterface';
 import { SidePanelSheet } from '@/components/SidePanelSheet';
-import { Recording, db } from '@/lib/database';
+import { Recording, db, initializeDefaultSettings } from '@/lib/database';
 import { toast } from '@/hooks/use-toast';
 import { usePWA } from '@/hooks/usePWA';
 import { transcribeAudio } from '@/lib/transcription';
 import { generateSummary } from '@/lib/summaryService';
 import { AppHeader } from '@/components/AppHeader';
-
-interface IndexProps {
-  
-}
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Mic, Settings } from 'lucide-react';
 
 const Index = () => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
+  const [showRecordingInterface, setShowRecordingInterface] = useState(false);
+  const [settings, setSettings] = useState(null);
   const { isOnline, installPrompt, isInstalled, installApp } = usePWA();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    loadRecordings();
+    initializeApp();
   }, []);
+
+  const initializeApp = async () => {
+    await initializeDefaultSettings();
+    await loadRecordings();
+    await loadSettings();
+  };
 
   const loadRecordings = async () => {
     try {
@@ -36,10 +45,99 @@ const Index = () => {
     }
   };
 
+  const loadSettings = async () => {
+    try {
+      const allSettings = await db.settings.toArray();
+      if (allSettings.length > 0) {
+        setSettings(allSettings[0]);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
+  const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
+    try {
+      if (!settings) {
+        throw new Error('Settings not loaded');
+      }
+
+      // Store the audio blob
+      const audioBlobHandle = `audio_${Date.now()}`;
+      await db.audioBlobs.add({ id: audioBlobHandle, blob: audioBlob });
+
+      // Create recording entry
+      const recording: Recording = {
+        title: `Recording ${new Date().toLocaleString()}`,
+        createdAt: new Date(),
+        duration,
+        provider: 'processing',
+        language: settings.language || 'en',
+        audioBlobHandle,
+        processingStep: 'transcribing'
+      };
+
+      const recordingId = await db.recordings.add(recording);
+      loadRecordings();
+
+      // Process transcription
+      try {
+        const transcript = await transcribeAudio(audioBlob, settings);
+        
+        let summaryMD = '';
+        let title = recording.title;
+        
+        if (settings.summaryProvider && settings.summaryProvider !== 'none') {
+          await db.recordings.update(recordingId, { processingStep: 'summarizing' });
+          loadRecordings();
+          
+          const summaryResult = await generateSummary(transcript, settings);
+          summaryMD = summaryResult.summary;
+          title = summaryResult.title;
+        }
+
+        await db.recordings.update(recordingId, {
+          transcriptMD: transcript,
+          summaryMD,
+          title,
+          provider: settings.selectedProvider,
+          processingStep: 'completed'
+        });
+
+        toast({
+          title: "Recording processed",
+          description: "Your recording has been transcribed successfully"
+        });
+      } catch (error) {
+        console.error('Processing failed:', error);
+        await db.recordings.update(recordingId, { 
+          provider: 'failed',
+          processingStep: 'failed'
+        });
+        
+        toast({
+          title: "Processing failed",
+          description: error instanceof Error ? error.message : 'Unknown error occurred',
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error saving recording:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save recording",
+        variant: "destructive"
+      });
+    } finally {
+      loadRecordings();
+      setShowRecordingInterface(false);
+    }
+  };
+
   const handleRetryTranscription = async (recording: Recording) => {
     try {
-      const settings = await db.settings.toArray();
-      if (settings.length === 0) {
+      const currentSettings = await db.settings.toArray();
+      if (currentSettings.length === 0) {
         throw new Error('No settings found');
       }
 
@@ -56,16 +154,16 @@ const Index = () => {
       loadRecordings();
 
       try {
-        const transcript = await transcribeAudio(audioData.blob, settings[0]);
+        const transcript = await transcribeAudio(audioData.blob, currentSettings[0]);
         
         let summaryMD = '';
         let title = recording.title;
         
-        if (settings[0].summaryProvider && settings[0].summaryProvider !== 'none') {
+        if (currentSettings[0].summaryProvider && currentSettings[0].summaryProvider !== 'none') {
           await db.recordings.update(recording.id!, { processingStep: 'summarizing' });
           loadRecordings();
           
-          const summaryResult = await generateSummary(transcript, settings[0]);
+          const summaryResult = await generateSummary(transcript, currentSettings[0]);
           summaryMD = summaryResult.summary;
           title = summaryResult.title;
         }
@@ -74,7 +172,7 @@ const Index = () => {
           transcriptMD: transcript,
           summaryMD,
           title,
-          provider: settings[0].selectedProvider,
+          provider: currentSettings[0].selectedProvider,
           processingStep: 'completed'
         });
 
@@ -156,36 +254,81 @@ const Index = () => {
         installPrompt={installPrompt}
         isInstalled={isInstalled}
         installApp={installApp}
+        onOpenSettings={() => navigate('/settings')}
+        onOpenRecording={() => setShowRecordingInterface(true)}
         showActions={true}
       />
       
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">
-          <RecordingInterface />
-          
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold mb-4">Recent Recordings</h2>
-            
-            {recordings.length === 0 ? (
+          {showRecordingInterface ? (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold">New Recording</h2>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowRecordingInterface(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+              <RecordingInterface 
+                onRecordingComplete={handleRecordingComplete}
+                maxDuration={settings?.maxDuration || 1800}
+              />
+            </div>
+          ) : (
+            <>
               <div className="text-center py-12">
-                <p className="text-muted-foreground">No recordings yet. Start by making your first recording!</p>
+                <Mic className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                <h1 className="text-3xl font-bold mb-2">AI Note Taker</h1>
+                <p className="text-muted-foreground mb-6">Record, transcribe, and summarize your thoughts with AI</p>
+                <Button 
+                  size="lg" 
+                  onClick={() => setShowRecordingInterface(true)}
+                  className="mb-8"
+                >
+                  <Mic className="w-5 h-5 mr-2" />
+                  Start Recording
+                </Button>
               </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {recordings.map((recording) => (
-                  <RecordingCard
-                    key={recording.id}
-                    recording={recording}
-                    onPlay={() => setSelectedRecording(recording)}
-                    onEdit={() => setSelectedRecording(recording)}
-                    onDelete={handleDeleteRecording}
-                  />
-                ))}
+
+              <div className="mt-8">
+                <h2 className="text-2xl font-bold mb-4">Recent Recordings</h2>
+                
+                {recordings.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No recordings yet. Start by making your first recording!</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {recordings.map((recording) => (
+                      <RecordingCard
+                        key={recording.id}
+                        recording={recording}
+                        onPlay={() => setSelectedRecording(recording)}
+                        onEdit={() => setSelectedRecording(recording)}
+                        onDelete={handleDeleteRecording}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Floating Action Button */}
+      {!showRecordingInterface && (
+        <Button
+          size="lg"
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
+          onClick={() => setShowRecordingInterface(true)}
+        >
+          <Mic className="w-6 h-6" />
+        </Button>
+      )}
 
       <SidePanelSheet
         recording={selectedRecording}

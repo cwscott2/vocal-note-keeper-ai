@@ -80,8 +80,10 @@ export const transcribeWithHuggingFace = async (audioBlob: Blob, apiKey: string,
   return result.text || result[0]?.text || 'Transcription failed - no text returned';
 };
 
-// Use the enhanced support detection from whisperWeb
-export { checkWhisperWebSupport as canUseWhisperWeb, transcribeWithWhisperWeb } from './whisperWeb';
+// Import the whisperWeb functions
+import { checkWhisperWebSupport as canUseWhisperWeb, transcribeWithWhisperWeb } from './whisperWeb';
+
+export { canUseWhisperWeb };
 
 import { Settings } from './database';
 
