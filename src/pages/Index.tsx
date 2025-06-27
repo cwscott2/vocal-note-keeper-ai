@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { RecordingCard } from '@/components/RecordingCard';
 import { useRecordings } from '@/hooks/useRecordings';
@@ -11,11 +12,12 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { AppHeader } from '@/components/AppHeader';
 import { SidePanelSheet } from '@/components/SidePanelSheet';
 import { RecordingInterface } from '@/components/RecordingInterface';
-import { Recording } from '@/lib/database';
+import { Recording, db } from '@/lib/database';
 import { usePWA } from '@/hooks/usePWA';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 export default function Index() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -174,7 +176,7 @@ export default function Index() {
       const transcriptResult = await transcribeAudio(audioBlob.blob, settings);
       
       await db.recordings.update(recordingId, {
-        transcriptMD: transcriptResult.text,
+        transcriptMD: transcriptResult,
         processingProgress: 60
       });
       loadRecordings(); // Refresh UI
@@ -188,7 +190,7 @@ export default function Index() {
         loadRecordings(); // Refresh UI
 
         try {
-          const summaryResult = await generateSummary(transcriptResult.text, settings);
+          const summaryResult = await generateSummary(transcriptResult, settings);
           
           await db.recordings.update(recordingId, {
             title: summaryResult.title,
