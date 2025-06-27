@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle, AlertCircle, Download, Folder, HardDrive } from 'lucide-react';
+import { CheckCircle, AlertCircle, Download, Folder, HardDrive, HelpCircle } from 'lucide-react';
 import { canUseWhisperWeb, TRANSCRIPTION_PROVIDERS } from '@/lib/transcription';
 import { SUMMARY_PROVIDERS } from '@/lib/summaryService';
 import { db, Settings } from '@/lib/database';
 import { toast } from '@/hooks/use-toast';
+import { OpenAIKeyGuide } from '@/components/guides/OpenAIKeyGuide';
+import { HuggingFaceKeyGuide } from '@/components/guides/HuggingFaceKeyGuide';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -27,6 +29,8 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
   const [whisperSupport, setWhisperSupport] = useState<{ supported: boolean; reason?: string } | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [openAIGuideOpen, setOpenAIGuideOpen] = useState(false);
+  const [hfGuideOpen, setHfGuideOpen] = useState(false);
 
   const steps = [
     'Capability Check',
@@ -246,7 +250,17 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
             
             {(selectedProvider === 'openai' || selectedSummaryProvider === 'openai') && (
               <div className="space-y-2">
-                <Label htmlFor="openai-key">OpenAI API Key</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="openai-key">OpenAI API Key</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setOpenAIGuideOpen(true)}
+                    className="h-auto p-1"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </Button>
+                </div>
                 <Input
                   id="openai-key"
                   type="password"
@@ -267,7 +281,17 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
 
             {(selectedProvider === 'huggingface' || selectedSummaryProvider === 'huggingface') && (
               <div className="space-y-2">
-                <Label htmlFor="hf-key">Hugging Face API Key</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="hf-key">Hugging Face API Key</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setHfGuideOpen(true)}
+                    className="h-auto p-1"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </Button>
+                </div>
                 <Input
                   id="hf-key"
                   type="password"
@@ -397,6 +421,16 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
           </div>
         </CardContent>
       </Card>
+
+      <OpenAIKeyGuide 
+        open={openAIGuideOpen}
+        onOpenChange={setOpenAIGuideOpen}
+      />
+      
+      <HuggingFaceKeyGuide 
+        open={hfGuideOpen}
+        onOpenChange={setHfGuideOpen}
+      />
     </div>
   );
 };
