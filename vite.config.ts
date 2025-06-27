@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    https: false, // Force HTTP in development to allow mixed content with LM Studio
+    // Remove https property entirely to use HTTP in development for LM Studio compatibility
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
       'Cross-Origin-Embedder-Policy': 'require-corp'
