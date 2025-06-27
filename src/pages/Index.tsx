@@ -102,6 +102,7 @@ const Index = () => {
 
   const transcribeRecording = async (recording: Recording, audioBlob: Blob) => {
     try {
+      console.log('Starting transcription for recording:', recording.id);
       await db.recordings.update(recording.id!, { provider: 'processing' });
       setRecordings(prev => prev.map(r => 
         r.id === recording.id ? { ...r, provider: 'processing' } : r
@@ -109,6 +110,7 @@ const Index = () => {
 
       const settings = await db.settings.toArray();
       const currentSettings = settings[0];
+      console.log('Current settings:', currentSettings);
       
       let transcription = '';
       let provider = '';
@@ -145,13 +147,18 @@ const Index = () => {
         throw new Error('No valid transcription provider configured');
       }
 
+      console.log('Transcription completed:', transcription.length, 'characters');
+
       if (transcription) {
         let summaryContent = '';
         let updatedTitle = recording.title;
         
+        // Generate summary if provider is configured
         if (currentSettings?.summaryProvider && currentSettings.summaryProvider !== 'none') {
           try {
+            console.log('Generating summary with provider:', currentSettings.summaryProvider);
             const summaryResult = await generateSummary(transcription, currentSettings);
+            console.log('Summary generated:', summaryResult);
             summaryContent = summaryResult.summary;
             updatedTitle = summaryResult.title || recording.title;
           } catch (error) {
@@ -175,7 +182,7 @@ const Index = () => {
 
         toast({
           title: "Transcription complete",
-          description: `Successfully transcribed using ${provider}`
+          description: `Successfully transcribed using ${provider}${summaryContent ? ' with summary' : ''}`
         });
       } else {
         throw new Error('No transcription returned');

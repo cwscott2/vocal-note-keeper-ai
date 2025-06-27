@@ -15,6 +15,8 @@ export const SUMMARY_PROVIDERS = [
 ];
 
 export const generateSummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
+  console.log('Generating summary with provider:', settings.summaryProvider);
+  
   if (!settings.summaryProvider || settings.summaryProvider === 'none') {
     throw new Error('Summary provider not configured');
   }
@@ -38,6 +40,7 @@ const generateOpenAISummary = async (transcript: string, settings: Settings): Pr
     throw new Error('OpenAI API key not configured');
   }
 
+  console.log('Making OpenAI API request...');
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -77,10 +80,12 @@ const generateOpenAISummary = async (transcript: string, settings: Settings): Pr
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('OpenAI API error:', errorText);
     throw new Error(`OpenAI API error: ${response.status} ${response.statusText}\n${errorText}`);
   }
 
   const result = await response.json();
+  console.log('OpenAI response:', result);
   const parsed = JSON.parse(result.choices[0].message.content);
   
   return {
@@ -127,8 +132,9 @@ const generateHuggingFaceSummary = async (transcript: string, settings: Settings
 };
 
 const generateOllamaSummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
-  const serverUrl = settings.ollamaUrl || 'http://localhost:11434';
+  const serverUrl = settings.ollamaServerUrl || 'http://localhost:11434';
   
+  console.log('Making Ollama API request to:', serverUrl);
   const response = await fetch(`${serverUrl}/api/chat`, {
     method: 'POST',
     headers: {
@@ -174,8 +180,9 @@ const generateOllamaSummary = async (transcript: string, settings: Settings): Pr
 };
 
 const generateLMStudioSummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
-  const serverUrl = settings.lmstudioUrl || 'http://192.168.0.11:1234';
+  const serverUrl = settings.lmstudioServerUrl || 'http://192.168.0.11:1234';
   
+  console.log('Making LM Studio API request to:', serverUrl);
   const response = await fetch(`${serverUrl}/v1/chat/completions`, {
     method: 'POST',
     headers: {

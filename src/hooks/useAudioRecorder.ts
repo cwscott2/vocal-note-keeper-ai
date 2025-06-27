@@ -28,46 +28,48 @@ export const useAudioRecorder = () => {
   const pausedTimeRef = useRef<number>(0);
 
   const updateTimer = useCallback(() => {
-    if (!state.isPaused && state.isRecording) {
-      const elapsed = Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000);
-      setState(prev => ({ ...prev, duration: elapsed }));
-      
-      // Update audio level
-      if (analyserRef.current) {
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-        setState(prev => ({ ...prev, audioLevel: average / 255 }));
+    setState(prevState => {
+      if (!prevState.isPaused && prevState.isRecording) {
+        const elapsed = Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000);
+        
+        // Update audio level
+        let audioLevel = 0;
+        if (analyserRef.current) {
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+          analyserRef.current.getByteFrequencyData(dataArray);
+          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+          audioLevel = average / 255;
+        }
+
+        return { ...prevState, duration: elapsed, audioLevel };
       }
-    }
-  }, [state.isPaused, state.isRecording]);
+      return prevState;
+    });
+  }, []);
 
   const startRecording = useCallback(async () => {
     try {
-      // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 16000, // Lower sample rate for better compression
-          channelCount: 1 // Mono audio
+          sampleRate: 16000,
+          channelCount: 1
         } 
       });
       
       streamRef.current = stream;
 
-      // Set up audio analysis for level monitoring
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       source.connect(analyserRef.current);
       analyserRef.current.fftSize = 256;
 
-      // Set up MediaRecorder with optimized settings
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 32000 // Lower bitrate for smaller files
+        audioBitsPerSecond: 32000
       });
 
       mediaRecorderRef.current = mediaRecorder;
@@ -79,13 +81,12 @@ export const useAudioRecorder = () => {
         }
       };
 
-      mediaRecorder.start(1000); // 1 second timeslices
+      mediaRecorder.start(1000);
 
       startTimeRef.current = Date.now();
       pausedTimeRef.current = 0;
       setState(prev => ({ ...prev, isRecording: true, duration: 0 }));
 
-      // Start timer with more frequent updates
       timerRef.current = setInterval(updateTimer, 100);
 
       toast({
@@ -113,7 +114,6 @@ export const useAudioRecorder = () => {
       mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm;codecs=opus' });
         
-        // Clean up
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
         }

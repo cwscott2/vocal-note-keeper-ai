@@ -1,4 +1,5 @@
 
+import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -7,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, ExternalLink } from 'lucide-react';
 import { Settings } from '@/lib/database';
 import { SUMMARY_PROVIDERS } from '@/lib/summaryService';
+import { TestSummarizationDialog } from '@/components/TestSummarizationDialog';
 
 interface SummarySettingsProps {
   settings: Settings | null;
@@ -14,6 +16,8 @@ interface SummarySettingsProps {
 }
 
 export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsProps) => {
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+
   return (
     <div className="space-y-4">
       <div>
@@ -42,8 +46,8 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
             <Input
               id="ollama-url"
               placeholder="http://localhost:11434"
-              value={settings?.ollamaUrl || ''}
-              onChange={(e) => onUpdateSettings({ ollamaUrl: e.target.value })}
+              value={settings?.ollamaServerUrl || ''}
+              onChange={(e) => onUpdateSettings({ ollamaServerUrl: e.target.value })}
             />
           </div>
           <div>
@@ -75,8 +79,8 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
             <Input
               id="lmstudio-url"
               placeholder="http://192.168.0.11:1234"
-              value={settings?.lmstudioUrl || ''}
-              onChange={(e) => onUpdateSettings({ lmstudioUrl: e.target.value })}
+              value={settings?.lmstudioServerUrl || ''}
+              onChange={(e) => onUpdateSettings({ lmstudioServerUrl: e.target.value })}
             />
           </div>
           <div>
@@ -134,7 +138,7 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
           <div>
             <Label>Model</Label>
             <Select
-              value={settings?.summaryModel || 'gpt-4.1-nano'}
+              value={settings?.summaryModel || 'gpt-4o-mini'}
               onValueChange={(value) => onUpdateSettings({ summaryModel: value })}
             >
               <SelectTrigger>
@@ -142,7 +146,7 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="gpt-4o-mini">GPT 4o-mini</SelectItem>
-                <SelectItem value="gpt-4.1-nano">GPT 4.1-nano (Default)</SelectItem>
+                <SelectItem value="gpt-4o">GPT 4o</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -150,10 +154,19 @@ export const SummarySettings = ({ settings, onUpdateSettings }: SummarySettingsP
       )}
 
       {settings?.summaryProvider !== 'none' && (
-        <Button variant="outline" className="w-full">
-          Test Summarisation
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={() => setTestDialogOpen(true)}
+        >
+          Test Summarization
         </Button>
       )}
+
+      <TestSummarizationDialog 
+        open={testDialogOpen}
+        onOpenChange={setTestDialogOpen}
+      />
     </div>
   );
 };
