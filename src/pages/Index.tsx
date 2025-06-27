@@ -85,6 +85,16 @@ export default function Index() {
     [deleteRecording]
   );
 
+  const handlePlay = useCallback((recording: Recording) => {
+    // Handle play logic here
+    console.log('Play recording:', recording);
+  }, []);
+
+  const handleEdit = useCallback((recording: Recording) => {
+    // Handle edit logic here
+    console.log('Edit recording:', recording);
+  }, []);
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
@@ -162,6 +172,8 @@ export default function Index() {
             <RecordingCard
               key={recording.id}
               recording={recording}
+              onPlay={handlePlay}
+              onEdit={handleEdit}
               onToggleFavorite={toggleFavorite}
               onDelete={removeRecording}
             />
