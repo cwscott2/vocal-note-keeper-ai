@@ -6,9 +6,18 @@ import { RecordingDetailsPanel } from '@/components/RecordingDetailsPanel';
 interface SidePanelSheetProps {
   recording: Recording | null;
   onClose: () => void;
+  onDelete: (recording: Recording) => void;
+  onRetry: (recording: Recording) => void;
+  onSave: (recording: Recording, updates: Partial<Recording>) => void;
 }
 
-export const SidePanelSheet = ({ recording, onClose }: SidePanelSheetProps) => {
+export const SidePanelSheet = ({ 
+  recording, 
+  onClose, 
+  onDelete, 
+  onRetry, 
+  onSave 
+}: SidePanelSheetProps) => {
   return (
     <Sheet open={!!recording} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="w-[400px] sm:w-[540px]">
@@ -16,7 +25,14 @@ export const SidePanelSheet = ({ recording, onClose }: SidePanelSheetProps) => {
           <SheetTitle>Recording Details</SheetTitle>
         </SheetHeader>
         {recording && (
-          <RecordingDetailsPanel recording={recording} />
+          <RecordingDetailsPanel 
+            recording={recording}
+            isOpen={!!recording}
+            onClose={onClose}
+            onDelete={onDelete}
+            onRetry={onRetry}
+            onSave={onSave}
+          />
         )}
       </SheetContent>
     </Sheet>

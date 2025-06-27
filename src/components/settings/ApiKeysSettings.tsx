@@ -30,8 +30,8 @@ export const ApiKeysSettings = ({ settings, onUpdateSettings }: ApiKeysSettingsP
           id="hf-key"
           type="password"
           placeholder="hf_..."
-          value={settings?.hfApiKey || ''}
-          onChange={(e) => onUpdateSettings({ hfApiKey: e.target.value })}
+          value={settings?.huggingfaceApiKey || ''}
+          onChange={(e) => onUpdateSettings({ huggingfaceApiKey: e.target.value })}
         />
         <p className="text-xs text-muted-foreground mt-1">
           Used for Hugging Face Whisper models and/or summarization

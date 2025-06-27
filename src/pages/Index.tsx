@@ -1,49 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Recording } from '@/lib/database';
 import { RecordingCard } from '@/components/RecordingCard';
 import { RecordingInterface } from '@/components/RecordingInterface';
-import { AppHeader } from '@/components/AppHeader';
 import { SidePanelSheet } from '@/components/SidePanelSheet';
-import { usePWA } from '@/hooks/usePWA';
-import { db, Settings } from '@/lib/database';
+import { Recording, db } from '@/lib/database';
 import { toast } from '@/hooks/use-toast';
+import { usePWA } from '@/hooks/usePWA';
+import { transcribeAudio } from '@/lib/transcription';
+import { generateSummary } from '@/lib/summaryService';
+import { AppHeader } from '@/components/AppHeader';
 
-const Dashboard = () => {
+interface IndexProps {
+  
+}
+
+const Index = () => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
   const { isOnline, installPrompt, isInstalled, installApp } = usePWA();
 
-  const navigate = useNavigate();
-
   useEffect(() => {
-    loadSettings();
     loadRecordings();
   }, []);
-
-  const loadSettings = async () => {
-    try {
-      const allSettings = await db.settings.toArray();
-      if (allSettings.length > 0) {
-        setSettings(allSettings[0]);
-      } else {
-        navigate('/settings');
-      }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load settings",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const loadRecordings = async () => {
     try {
@@ -59,129 +36,118 @@ const Dashboard = () => {
     }
   };
 
-  const handlePlayRecording = (recording: Recording) => {
-    setSelectedRecording(recording);
-  };
+  const handleRetryTranscription = async (recording: Recording) => {
+    try {
+      const settings = await db.settings.toArray();
+      if (settings.length === 0) {
+        throw new Error('No settings found');
+      }
 
-  const handleRecordingComplete = async (audioBlob: Blob, duration: number) => {
-    console.log('Recording completed with duration:', duration);
-    
-    if (!settings) {
+      const audioData = await db.audioBlobs.get(recording.audioBlobHandle);
+      if (!audioData) {
+        throw new Error('Audio data not found');
+      }
+
+      await db.recordings.update(recording.id!, { 
+        provider: 'processing',
+        processingStep: 'transcribing'
+      });
+      
+      loadRecordings();
+
+      try {
+        const transcript = await transcribeAudio(audioData.blob, settings[0]);
+        
+        let summaryMD = '';
+        let title = recording.title;
+        
+        if (settings[0].summaryProvider && settings[0].summaryProvider !== 'none') {
+          await db.recordings.update(recording.id!, { processingStep: 'summarizing' });
+          loadRecordings();
+          
+          const summaryResult = await generateSummary(transcript, settings[0]);
+          summaryMD = summaryResult.summary;
+          title = summaryResult.title;
+        }
+
+        await db.recordings.update(recording.id!, {
+          transcriptMD: transcript,
+          summaryMD,
+          title,
+          provider: settings[0].selectedProvider,
+          processingStep: 'completed'
+        });
+
+        toast({
+          title: "Transcription completed",
+          description: "Recording has been processed successfully"
+        });
+      } catch (error) {
+        console.error('Transcription failed:', error);
+        await db.recordings.update(recording.id!, { 
+          provider: 'failed',
+          processingStep: 'failed'
+        });
+        
+        toast({
+          title: "Transcription failed",
+          description: error instanceof Error ? error.message : 'Unknown error occurred',
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error retrying transcription:', error);
       toast({
         title: "Error",
-        description: "Settings not loaded",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsTranscribing(true);
-    
-    try {
-      // Create recording entry
-      const recording: Omit<Recording, 'id'> = {
-        title: 'Processing...',
-        createdAt: new Date(),
-        duration: duration, // Use the actual calculated duration
-        provider: 'processing',
-        language: settings.language,
-        audioBlobHandle: `recording_${Date.now()}`,
-        processingStep: 'transcribing',
-        processingProgress: 0
-      };
-
-      const recordingId = await db.recordings.add(recording);
-      console.log('Created recording with ID:', recordingId, 'duration:', duration);
-
-      // Store audio blob
-      if (settings.saveRecordings) {
-        await db.audioBlobs.put({
-          id: recording.audioBlobHandle,
-          blob: audioBlob
-        });
-      }
-
-      // Start transcription
-      const { transcribeAudio } = await import('@/lib/transcription');
-      
-      console.log('Starting transcription for recording:', recordingId);
-      console.log('Current settings:', settings);
-      
-      const transcript = await transcribeAudio(audioBlob, settings);
-      console.log('Transcription completed:', transcript.length, 'characters');
-
-      // Update with transcript
-      await db.recordings.update(recordingId, {
-        title: transcript.slice(0, 50) + (transcript.length > 50 ? '...' : ''),
-        transcriptMD: transcript,
-        processingStep: 'summarizing',
-        processingProgress: 50
-      });
-
-      // Generate summary if configured
-      if (settings.summaryProvider && settings.summaryProvider !== 'none') {
-        try {
-          const { generateSummary } = await import('@/lib/summaryService');
-          const summaryResult = await generateSummary(transcript, settings);
-          
-          await db.recordings.update(recordingId, {
-            title: summaryResult.title,
-            summaryMD: summaryResult.summary,
-            provider: settings.selectedProvider,
-            processingStep: 'completed',
-            processingProgress: 100
-          });
-        } catch (summaryError) {
-          console.error('Summary generation failed:', summaryError);
-          await db.recordings.update(recordingId, {
-            provider: settings.selectedProvider,
-            processingStep: 'completed',
-            processingProgress: 100
-          });
-        }
-      } else {
-        await db.recordings.update(recordingId, {
-          provider: settings.selectedProvider,
-          processingStep: 'completed',
-          processingProgress: 100
-        });
-      }
-
-      loadRecordings();
-      
-      toast({
-        title: "Recording processed",
-        description: "Your recording has been transcribed successfully"
-      });
-
-    } catch (error) {
-      console.error('Error processing recording:', error);
-      toast({
-        title: "Processing failed",
-        description: error instanceof Error ? error.message : "Unknown error",
+        description: "Failed to retry transcription",
         variant: "destructive"
       });
     } finally {
-      setIsTranscribing(false);
+      loadRecordings();
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <AppHeader
-          isOnline={isOnline}
-          installPrompt={installPrompt}
-          isInstalled={isInstalled}
-          installApp={installApp}
-          showActions={false}
-        />
-        <div className="container mx-auto px-4 py-8">
-          <p>Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleDeleteRecording = async (recording: Recording) => {
+    try {
+      await db.recordings.delete(recording.id!);
+      await db.audioBlobs.delete(recording.audioBlobHandle);
+      
+      toast({
+        title: "Recording deleted",
+        description: "Recording has been deleted successfully"
+      });
+      
+      setSelectedRecording(null);
+      loadRecordings();
+    } catch (error) {
+      console.error('Error deleting recording:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete recording",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSaveRecording = async (recording: Recording, updates: Partial<Recording>) => {
+    try {
+      await db.recordings.update(recording.id!, updates);
+      
+      toast({
+        title: "Recording saved",
+        description: "Changes have been saved successfully"
+      });
+      
+      loadRecordings();
+    } catch (error) {
+      console.error('Error saving recording:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save changes",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -192,31 +158,44 @@ const Dashboard = () => {
         installApp={installApp}
         showActions={true}
       />
-
-      <SidePanelSheet recording={selectedRecording} onClose={() => setSelectedRecording(null)} />
-
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-4">My Recordings</h1>
-
-        <RecordingInterface
-          onRecordingComplete={handleRecordingComplete}
-          maxDuration={settings?.maxDuration || 1800}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-8">
-          {recordings.map((recording) => (
-            <RecordingCard
-              key={recording.id}
-              recording={recording}
-              onPlay={handlePlayRecording}
-              onEdit={() => {}}
-              onDelete={() => {}}
-            />
-          ))}
+      
+      <div className="container mx-auto px-4 py-6">
+        <div className="max-w-4xl mx-auto">
+          <RecordingInterface />
+          
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold mb-4">Recent Recordings</h2>
+            
+            {recordings.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No recordings yet. Start by making your first recording!</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {recordings.map((recording) => (
+                  <RecordingCard
+                    key={recording.id}
+                    recording={recording}
+                    onPlay={() => setSelectedRecording(recording)}
+                    onEdit={() => setSelectedRecording(recording)}
+                    onDelete={handleDeleteRecording}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      <SidePanelSheet
+        recording={selectedRecording}
+        onClose={() => setSelectedRecording(null)}
+        onDelete={handleDeleteRecording}
+        onRetry={handleRetryTranscription}
+        onSave={handleSaveRecording}
+      />
     </div>
   );
 };
 
-export default Dashboard;
+export default Index;

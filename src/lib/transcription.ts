@@ -1,3 +1,4 @@
+
 export interface TranscriptionProvider {
   name: string;
   displayName: string;

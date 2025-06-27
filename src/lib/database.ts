@@ -1,3 +1,4 @@
+
 import Dexie, { Table } from 'dexie';
 
 export interface Recording {
@@ -21,6 +22,7 @@ export interface Settings {
   selectedModel?: string;
   whisperModels: string[];
   hfApiKey?: string;
+  huggingfaceApiKey?: string;
   openaiApiKey?: string;
   saveLocation: 'indexeddb' | 'filesystem';
   language: string;
