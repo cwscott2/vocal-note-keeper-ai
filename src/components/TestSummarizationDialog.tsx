@@ -87,10 +87,10 @@ export const TestSummarizationDialog = ({ open, onOpenChange }: TestSummarizatio
           {!result && !error && (
             <>
               <div>
-                <Label htmlFor="transcript">Meeting Transcript</Label>
+                <Label htmlFor="transcript">Transcript</Label>
                 <Textarea
                   id="transcript"
-                  placeholder="Enter your meeting transcript here..."
+                  placeholder="Enter your transcript here..."
                   value={transcript}
                   onChange={(e) => setTranscript(e.target.value)}
                   rows={8}
@@ -110,7 +110,7 @@ export const TestSummarizationDialog = ({ open, onOpenChange }: TestSummarizatio
                       Summarizing...
                     </>
                   ) : (
-                    'Summarize'
+                    'Next'
                   )}
                 </Button>
                 <Button variant="outline" onClick={handleClose}>
@@ -124,37 +124,23 @@ export const TestSummarizationDialog = ({ open, onOpenChange }: TestSummarizatio
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-green-600">
                 <CheckCircle className="w-5 h-5" />
-                <span className="font-medium">Summary Generated Successfully</span>
+                <span className="font-medium">Success</span>
               </div>
 
               <div>
-                <Label>Title</Label>
-                <code 
-                  className="block p-3 bg-muted rounded cursor-pointer text-sm mt-2 hover:bg-muted/80 transition-colors"
-                  onClick={() => handleCopy(result.title)}
-                  title="Click to copy"
-                >
-                  {result.title}
-                </code>
-              </div>
-
-              <div>
-                <Label>Summary</Label>
+                <Label>Response from Provider</Label>
                 <code 
                   className="block p-3 bg-muted rounded cursor-pointer text-sm mt-2 hover:bg-muted/80 transition-colors whitespace-pre-wrap"
-                  onClick={() => handleCopy(result.summary)}
+                  onClick={() => handleCopy(JSON.stringify(result, null, 2))}
                   title="Click to copy"
                 >
-                  {result.summary}
+                  {JSON.stringify(result, null, 2)}
                 </code>
               </div>
 
               <div className="flex gap-2">
                 <Button onClick={handleClose} className="flex-1">
                   Done
-                </Button>
-                <Button variant="outline" onClick={handleReset}>
-                  Test Again
                 </Button>
               </div>
             </div>
@@ -164,11 +150,11 @@ export const TestSummarizationDialog = ({ open, onOpenChange }: TestSummarizatio
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-red-600">
                 <AlertCircle className="w-5 h-5" />
-                <span className="font-medium">Summarization Failed</span>
+                <span className="font-medium">Failure</span>
               </div>
 
               <div>
-                <Label>Error Details</Label>
+                <Label>Error Message</Label>
                 <code 
                   className="block p-3 bg-muted rounded cursor-pointer text-sm mt-2 hover:bg-muted/80 transition-colors text-red-600"
                   onClick={() => handleCopy(error)}
