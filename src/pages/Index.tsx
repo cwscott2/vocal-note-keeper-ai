@@ -297,12 +297,12 @@ export default function Index() {
       />
 
       {/* Recording Interface */}
-      {showRecordingInterface && (
-        <RecordingInterface 
-          onRecordingComplete={handleRecordingComplete} 
-          maxDuration={1500}
-        />
-      )}
+      <RecordingInterface 
+        isOpen={showRecordingInterface}
+        onClose={() => setShowRecordingInterface(false)}
+        onRecordingComplete={handleRecordingComplete} 
+        maxDuration={1500}
+      />
     </div>
   );
 }
