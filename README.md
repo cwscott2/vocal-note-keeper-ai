@@ -1,8 +1,16 @@
-# Welcome to your Lovable project
+# AI Note Taker & Keeper App
+
+**Features:**
+1. Local-only - all data stays in your browser (including API keys)
+2. Use free models from HuggingFace for Transcript using API Keys
+3. Option to use OpenAI's model using API Key
+4. You can run it locally
+5. You can modify the code to extend it!
+
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/be719897-a705-49ae-af8a-a150e9a2e7cf
+**URL**: [https://lovable.dev/projects/be719897-a705-49ae-af8a-a150e9a2e7cf](https://vocal-note-keeper-ai.lovable.app/)
 
 ## How can I edit this code?
 
@@ -10,7 +18,7 @@ There are several ways of editing your application.
 
 **Use Lovable**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/be719897-a705-49ae-af8a-a150e9a2e7cf) and start prompting.
+Simply visit the [the app]([https://lovable.dev/projects/be719897-a705-49ae-af8a-a150e9a2e7cf](https://vocal-note-keeper-ai.lovable.app/)) and start using.
 
 Changes made via Lovable will be committed automatically to this repo.
 
