@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { RecordingCard } from '@/components/RecordingCard';
 import { RecordingInterface } from '@/components/RecordingInterface';
@@ -469,61 +470,6 @@ const Index = () => {
                 />
               </div>
             </div>
-
-            {/* Pagination Controls */}
-            {showPagination && (
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-4">
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                      
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const pageNum = i + 1;
-                        return (
-                          <PaginationItem key={pageNum}>
-                            <PaginationLink 
-                              onClick={() => setCurrentPage(pageNum)}
-                              isActive={currentPage === pageNum}
-                              className="cursor-pointer"
-                            >
-                              {pageNum}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      })}
-                      
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                  
-                  <span className="text-sm text-muted-foreground">
-                    Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredAndSearchedRecordings.length)} of {filteredAndSearchedRecordings.length} items
-                  </span>
-                </div>
-
-                <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="50">50 items/page</SelectItem>
-                    <SelectItem value="100">100 items/page</SelectItem>
-                    <SelectItem value="250">250 items/page</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             
             {filteredAndSearchedRecordings.length === 0 ? (
               <div className="text-center py-12">
@@ -532,18 +478,75 @@ const Index = () => {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {paginatedRecordings.map((recording) => (
-                  <RecordingCard
-                    key={recording.id}
-                    recording={recording}
-                    onPlay={() => setSelectedRecording(recording)}
-                    onEdit={() => setSelectedRecording(recording)}
-                    onDelete={handleDeleteRecording}
-                    onToggleFavorite={handleToggleFavorite}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {paginatedRecordings.map((recording) => (
+                    <RecordingCard
+                      key={recording.id}
+                      recording={recording}
+                      onPlay={() => setSelectedRecording(recording)}
+                      onEdit={() => setSelectedRecording(recording)}
+                      onDelete={handleDeleteRecording}
+                      onToggleFavorite={handleToggleFavorite}
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination Controls - Now below the grid */}
+                {showPagination && (
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="flex items-center gap-4">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                              className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                          
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            const pageNum = i + 1;
+                            return (
+                              <PaginationItem key={pageNum}>
+                                <PaginationLink 
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  isActive={currentPage === pageNum}
+                                  className="cursor-pointer"
+                                >
+                                  {pageNum}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          })}
+                          
+                          <PaginationItem>
+                            <PaginationNext 
+                              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                              className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                      
+                      <span className="text-sm text-muted-foreground">
+                        Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredAndSearchedRecordings.length)} of {filteredAndSearchedRecordings.length} items
+                      </span>
+                    </div>
+
+                    <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="50">50 items/page</SelectItem>
+                        <SelectItem value="100">100 items/page</SelectItem>
+                        <SelectItem value="250">250 items/page</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
