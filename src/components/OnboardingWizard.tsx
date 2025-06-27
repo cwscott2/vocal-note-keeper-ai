@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +20,7 @@ interface OnboardingWizardProps {
 export const OnboardingWizard = ({ onComplete, showBackButton = false }: OnboardingWizardProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedProvider, setSelectedProvider] = useState('whisper-web');
+  const [selectedModel, setSelectedModel] = useState('');
   const [selectedSummaryProvider, setSelectedSummaryProvider] = useState<'none' | 'openai'>('none');
   const [apiKeys, setApiKeys] = useState({ openai: '', huggingface: '' });
   const [storageOption, setStorageOption] = useState<'indexeddb' | 'filesystem'>('indexeddb');
@@ -43,12 +43,36 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
     { name: 'openai', displayName: 'OpenAI', requiresApiKey: true }
   ];
 
+  // Function to get default model for a provider
+  const getDefaultModel = (provider: string): string => {
+    switch (provider) {
+      case 'openai':
+        return 'whisper-1';
+      case 'huggingface':
+        return 'openai/whisper-large-v3-turbo';
+      case 'whisper-web':
+        return 'tiny';
+      default:
+        return '';
+    }
+  };
+
+  // Function to handle provider change with default model setting
+  const handleProviderChange = (provider: string) => {
+    setSelectedProvider(provider);
+    setSelectedModel(getDefaultModel(provider));
+  };
+
   useEffect(() => {
     // Check Whisper Web support on mount
     const support = canUseWhisperWeb();
     setWhisperSupport(support);
     if (!support.supported) {
       setSelectedProvider('openai');
+      setSelectedModel(getDefaultModel('openai'));
+    } else {
+      // Set default model for whisper-web
+      setSelectedModel(getDefaultModel('whisper-web'));
     }
 
     // Load existing settings to prefill API keys
@@ -114,7 +138,8 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
     try {
       const settingsData: Partial<Settings> = {
         selectedProvider,
-        whisperModels: selectedProvider === 'whisper-web' ? ['tiny'] : [],
+        selectedModel, // Include the selected model
+        whisperModels: selectedProvider === 'whisper-web' ? [selectedModel] : [],
         openaiApiKey: apiKeys.openai || undefined,
         hfApiKey: apiKeys.huggingface || undefined,
         huggingfaceApiKey: apiKeys.huggingface || undefined,
@@ -346,7 +371,7 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Choose your transcription provider</h3>
             
-            <RadioGroup value={selectedProvider} onValueChange={setSelectedProvider}>
+            <RadioGroup value={selectedProvider} onValueChange={handleProviderChange}>
               {TRANSCRIPTION_PROVIDERS.map((provider) => (
                 <div key={provider.name} className="flex items-center space-x-2">
                   <RadioGroupItem 
@@ -368,6 +393,14 @@ export const OnboardingWizard = ({ onComplete, showBackButton = false }: Onboard
                 </div>
               ))}
             </RadioGroup>
+
+            {selectedModel && (
+              <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Selected model:</strong> {selectedModel}
+                </p>
+              </div>
+            )}
           </div>
         );
 
