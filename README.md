@@ -12,6 +12,9 @@
 
 **URL**: [https://lovable.dev/projects/be719897-a705-49ae-af8a-a150e9a2e7cf](https://vocal-note-keeper-ai.lovable.app/)
 
+## How can I use this code?
+Take the URL of this github repository to your favourite AI, and ask them to make a step-by-step plan to setup this app for you.
+
 ## How can I edit this code?
 
 There are several ways of editing your application.
