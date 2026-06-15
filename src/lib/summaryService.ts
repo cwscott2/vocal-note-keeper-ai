@@ -1,4 +1,17 @@
 
+// SECURITY NOTE: This file uses `dangerouslyAllowBrowser: true` with the OpenAI SDK.
+// The API key used here is the *user's own key* (entered in app settings, stored in
+// IndexedDB), not a developer key embedded in the source code. The risk is that the
+// key is transmitted from the browser over HTTPS and could theoretically be intercepted
+// in a compromised network environment.
+//
+// TODO (production hardening): Route all OpenAI calls through a Vercel/Netlify serverless
+// proxy endpoint. The user's key can be passed to the proxy in the request body over
+// HTTPS, but the actual OpenAI SDK call should happen server-side. This removes the
+// `dangerouslyAllowBrowser` flag entirely.
+//
+// Reference: https://platform.openai.com/docs/guides/production-best-practices
+
 import { Settings } from './database';
 import OpenAI from 'openai';
 
