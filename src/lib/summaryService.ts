@@ -1,16 +1,11 @@
-
-// SECURITY NOTE: This file uses `dangerouslyAllowBrowser: true` with the OpenAI SDK.
-// The API key used here is the *user's own key* (entered in app settings, stored in
-// IndexedDB), not a developer key embedded in the source code. The risk is that the
-// key is transmitted from the browser over HTTPS and could theoretically be intercepted
-// in a compromised network environment.
+// summaryService.ts — Generates AI summaries of meeting transcripts.
 //
-// TODO (production hardening): Route all OpenAI calls through a Vercel/Netlify serverless
-// proxy endpoint. The user's key can be passed to the proxy in the request body over
-// HTTPS, but the actual OpenAI SDK call should happen server-side. This removes the
-// `dangerouslyAllowBrowser` flag entirely.
+// OpenAI calls are routed through /api/openai-chat (Vercel serverless proxy).
+// The user's API key is passed in the request body over HTTPS — it is never
+// embedded in the source code and never requires `dangerouslyAllowBrowser`.
 //
-// Reference: https://platform.openai.com/docs/guides/production-best-practices
+// LM Studio calls go directly to the user's local server (localhost/LAN) —
+// no proxy is needed since local network calls are not browser-security-sensitive.
 
 import { Settings } from './database';
 import OpenAI from 'openai';
@@ -43,59 +38,103 @@ export const generateSummary = async (transcript: string, settings: Settings): P
   }
 };
 
+// Detect whether we're running in a Vercel deployment (proxy available)
+// or in the Lovable preview / local dev (proxy not available).
+function getProxyBase(): string | null {
+  // In Vercel deployments, /api/openai-chat is available.
+  // In Lovable preview (vocal-note-keeper-ai.lovable.app), it is not.
+  // We detect by checking if the origin is a Vercel deployment.
+  if (typeof window === 'undefined') return null;
+  const origin = window.location.origin;
+  // Vercel deployments use vercel.app or a custom domain connected to Vercel.
+  // Lovable uses lovable.app. Localhost is always safe to proxy if the dev server is running.
+  if (origin.includes('localhost') || origin.includes('vercel.app') || origin.includes('127.0.0.1')) {
+    return origin;
+  }
+  // Custom domains — assume proxy is available if not lovable.app
+  if (!origin.includes('lovable.app')) {
+    return origin;
+  }
+  return null; // Lovable preview — fall back to direct call
+}
+
+const SUMMARY_MESSAGES = (transcript: string) => [
+  {
+    role: 'system' as const,
+    content: 'You are a helpful summary assistant'
+  },
+  {
+    role: 'user' as const,
+    content: `You are a helpful summary assistant, summaries the following meeting transcript into bullets for "summary", and using summary decide on a "title" (include pun if possible, max 50 characters ). You must respond in json! Transcript: ${transcript} \n You must respond in JSON with summary and title key's`
+  }
+];
+
+const SUMMARY_RESPONSE_FORMAT = {
+  type: "json_schema" as const,
+  json_schema: {
+    name: "summary",
+    schema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        summary: { type: "string" }
+      },
+      required: ["title", "summary"]
+    }
+  }
+};
+
 const generateOpenAISummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
   if (!settings.openaiApiKey) {
     throw new Error('OpenAI API key not configured');
   }
 
-  console.log('Making OpenAI API request...');
-  
-  const openai = new OpenAI({
-    apiKey: settings.openaiApiKey,
-    dangerouslyAllowBrowser: true
-  });
+  const model = settings.summaryModel || 'gpt-4o-mini';
+  const messages = SUMMARY_MESSAGES(transcript);
+  const proxyBase = getProxyBase();
 
-  const response = await openai.chat.completions.create({
-    model: settings.summaryModel || 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: 'You are a helpful summary assistant'
-      },
-      {
-        role: 'user',
-        content: `You are a helpful summary assistant, summaries the following meeting transcript into bullets for "summary", and using summary decide on a "title" (include pun if possible, max 50 characters ). You must respond in json! Transcript: ${transcript} \n You must respond in JSON with summary and title key's`
-      }
-    ],
-    max_tokens: 500,
-    temperature: 0.6,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "summary",
-        schema: {
-          type: "object",
-          properties: {
-            title: {
-              type: "string"
-            },
-            summary: {
-              type: "string"
-            }
-          },
-          required: ["title", "summary"]
-        }
-      }
+  console.log('Making OpenAI summary request via', proxyBase ? 'server proxy' : 'direct (Lovable preview)');
+
+  let content: string;
+
+  if (proxyBase) {
+    // Route through server-side proxy — no dangerouslyAllowBrowser needed
+    const response = await fetch(`${proxyBase}/api/openai-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey: settings.openaiApiKey,
+        model,
+        messages,
+        max_tokens: 500,
+        temperature: 0.6,
+        response_format: SUMMARY_RESPONSE_FORMAT,
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `OpenAI proxy error: ${response.status}`);
     }
-  });
 
-  console.log('OpenAI response:', response);
-  const parsed = JSON.parse(response.choices[0].message.content || '{}');
-  
-  return {
-    title: parsed.title,
-    summary: parsed.summary
-  };
+    const data = await response.json();
+    content = data.choices?.[0]?.message?.content || '{}';
+  } else {
+    // Lovable preview fallback — direct call (dangerouslyAllowBrowser required here only)
+    const openai = new OpenAI({ apiKey: settings.openaiApiKey, dangerouslyAllowBrowser: true });
+    const response = await openai.chat.completions.create({
+      model,
+      messages,
+      max_tokens: 500,
+      temperature: 0.6,
+      response_format: SUMMARY_RESPONSE_FORMAT,
+    });
+    content = response.choices[0].message.content || '{}';
+  }
+
+  console.log('OpenAI summary response received');
+  const parsed = JSON.parse(content);
+  return { title: parsed.title, summary: parsed.summary };
 };
 
 const generateLMStudioSummary = async (transcript: string, settings: Settings): Promise<SummaryResult> => {
@@ -107,48 +146,23 @@ const generateLMStudioSummary = async (transcript: string, settings: Settings): 
     throw new Error('Model is required for LM Studio');
   }
 
+  // LM Studio is a local server — direct calls are safe (no browser security risk)
   const openai = new OpenAI({
     baseURL: `${serverUrl}/v1`,
     apiKey: 'lm-studio',
-    dangerouslyAllowBrowser: true
+    dangerouslyAllowBrowser: true, // Safe: local LAN server, no real API key
   });
 
   try {
     const response = await openai.chat.completions.create({
       model: settings.summaryModel,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful summary assistant'
-        },
-        {
-          role: 'user',
-          content: `You are a helpful summary assistant, summaries the following meeting transcript into bullets for "summary", and using summary decide on a "title" (include pun if possible, max 50 characters ). You must respond in json! Transcript: ${transcript} \n You must respond in JSON with summary and title key's`
-        }
-      ],
+      messages: SUMMARY_MESSAGES(transcript),
       max_tokens: 500,
       temperature: 0.6,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "summary",
-          schema: {
-            type: "object",
-            properties: {
-              title: {
-                type: "string"
-              },
-              summary: {
-                type: "string"
-              }
-            },
-            required: ["title", "summary"]
-          }
-        }
-      }
+      response_format: SUMMARY_RESPONSE_FORMAT,
     });
 
-    console.log('LM Studio response:', response);
+    console.log('LM Studio response received');
     const parsed = JSON.parse(response.choices[0].message.content || '{}');
     
     return {

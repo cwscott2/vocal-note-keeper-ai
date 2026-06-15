@@ -1,3 +1,8 @@
+// transcription.ts — Handles audio transcription across multiple providers.
+//
+// OpenAI Whisper calls are routed through /api/openai-transcribe (Vercel serverless proxy)
+// when running in a Vercel deployment. In Lovable preview, they fall back to direct calls.
+// Hugging Face and Whisper Web calls are unaffected (no OpenAI SDK involved).
 
 export interface TranscriptionProvider {
   name: string;
@@ -32,30 +37,69 @@ export const TRANSCRIPTION_PROVIDERS: TranscriptionProvider[] = [
   }
 ];
 
-export const transcribeWithOpenAI = async (audioBlob: Blob, apiKey: string, model: string = 'whisper-1'): Promise<string> => {
-  const formData = new FormData();
-  formData.append('file', audioBlob, 'audio.webm');
-  formData.append('model', model);
-  formData.append('response_format', 'text');
-
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('OpenAI API error:', errorText);
-    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}\n${errorText}`);
+// Detect whether the server-side proxy is available (Vercel deployment vs Lovable preview).
+function getProxyBase(): string | null {
+  if (typeof window === 'undefined') return null;
+  const origin = window.location.origin;
+  if (origin.includes('localhost') || origin.includes('vercel.app') || origin.includes('127.0.0.1')) {
+    return origin;
   }
+  if (!origin.includes('lovable.app')) {
+    return origin; // Custom domain — assume proxy is available
+  }
+  return null; // Lovable preview — fall back to direct call
+}
 
-  return await response.text();
+export const transcribeWithOpenAI = async (audioBlob: Blob, apiKey: string, model: string = 'whisper-1'): Promise<string> => {
+  const proxyBase = getProxyBase();
+
+  console.log('Transcribing via OpenAI', proxyBase ? '(server proxy)' : '(direct — Lovable preview)');
+
+  if (proxyBase) {
+    // Route through server-side proxy
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.webm');
+    formData.append('model', model);
+    formData.append('response_format', 'text');
+    formData.append('apiKey', apiKey); // Proxy extracts and strips this before forwarding
+
+    const response = await fetch(`${proxyBase}/api/openai-transcribe`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI transcription proxy error:', errorText);
+      throw new Error(`OpenAI transcription error: ${response.status} ${response.statusText}\n${errorText}`);
+    }
+
+    return await response.text();
+  } else {
+    // Lovable preview fallback — direct browser call
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.webm');
+    formData.append('model', model);
+    formData.append('response_format', 'text');
+
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', errorText);
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}\n${errorText}`);
+    }
+
+    return await response.text();
+  }
 };
 
 export const transcribeWithHuggingFace = async (audioBlob: Blob, apiKey: string, model: string): Promise<string> => {
+  // Hugging Face calls go directly to api-inference.huggingface.co — no OpenAI SDK involved.
   const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
     method: 'POST',
     headers: {
